@@ -114,7 +114,7 @@ const workspaceTabs = useWorkspaceTabsStore()
 const { currentBotId, sessions } = storeToRefs(chatStore)
 const { isPinned } = usePinnedBots()
 
-const { data: botData, isLoading } = useQuery(getBotsQuery())
+const { data: botData, isLoading, refetch: refetchBots } = useQuery(getBotsQuery())
 // The activity endpoint is a fork addition; an older backend 404s here and the
 // list degrades to names without previews.
 const { data: activityData, refetch: refetchActivity } = useQuery(getBotsActivityQuery())
@@ -173,7 +173,11 @@ const newestSessionAt = computed(() =>
   sessions.value.reduce((max, s) => Math.max(max, timestampOf(s.updated_at)), 0),
 )
 watch(newestSessionAt, (next, prev) => {
-  if (next > prev) void refetchActivity()
+  if (next <= prev) return
+  void refetchActivity()
+  // The Bot Designer creates bots mid-turn; pick them up without a reload.
+  const current = botData.value?.items?.find(bot => bot.id === currentBotId.value)
+  if (current?.metadata?.bot_designer === true) void refetchBots()
 })
 
 async function openBot(row: ConversationRow) {
