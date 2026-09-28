@@ -45,6 +45,10 @@
         <!-- Same panels the desktop rail hosts, with the same bottom fade into
              the Settings row. -->
         <div class="relative min-h-0 flex-1 overflow-hidden">
+          <BotConversations
+            v-show="sidebarView === 'bots'"
+            class="h-full"
+          />
           <PanelSessions
             v-show="sidebarView === 'sessions'"
             class="h-full"
@@ -83,7 +87,7 @@ import { computed, watch, type Component } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { Calendar, Files, MessageCircle } from 'lucide-vue-next'
+import { Calendar, Files, History, MessageCircle } from 'lucide-vue-next'
 import { SettingsIcon as Settings } from '@memohai/icon/ui'
 import {
   Sheet,
@@ -98,6 +102,7 @@ import { useWorkspaceTabsStore, type SidebarView } from '@/store/workspace-tabs'
 import { hasBotPermission } from '@/utils/bot-permissions'
 import BotSwitcher from '@/components/sidebar/bot-switcher.vue'
 import SidebarNavButton from '@/components/sidebar/nav-button.vue'
+import BotConversations from '@/components/sidebar/bot-conversations.vue'
 import PanelSessions from '@/components/sidebar/panel-sessions.vue'
 import PanelFiles from '@/components/sidebar/panel-files.vue'
 import PanelSchedule from '@/components/sidebar/panel-schedule.vue'
@@ -126,7 +131,8 @@ const canWorkspaceRead = computed(() =>
 
 const availableViews = computed<NavView[]>(() => {
   const views: NavView[] = [
-    { id: 'sessions', label: t('chat.activityBar.sessions'), icon: MessageCircle },
+    { id: 'bots', label: t('messenger.chats'), icon: MessageCircle },
+    { id: 'sessions', label: t('messenger.history'), icon: History },
   ]
   if (canWorkspaceRead.value) {
     views.push({ id: 'files', label: t('chat.activityBar.files'), icon: Files })
@@ -140,7 +146,7 @@ const availableViews = computed<NavView[]>(() => {
 // (which owns this watch on desktop) is not mounted under the mobile shell.
 watch(availableViews, (views) => {
   if (!views.some(view => view.id === sidebarView.value)) {
-    workspaceTabs.selectSidebarView('sessions')
+    workspaceTabs.selectSidebarView('bots')
   }
 }, { immediate: true })
 

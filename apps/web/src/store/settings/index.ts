@@ -46,7 +46,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const defaultUiFontFamily = computed(() => DEFAULT_UI_FONT_FAMILY)
   const defaultCodeFontFamily = computed(() => DEFAULT_CODE_FONT_FAMILY)
   const language = useStorage<Locale>('language', 'en')
-  const theme = useStorage<ThemePreference>('theme', 'system')
+  const theme = useStorage<ThemePreference>('theme', 'dark')
   const colorScheme = useStorage<ColorSchemeId>('color-scheme', 'memoh')
   const uiFontFamily = useStorage<string>('ui-font-family', '')
   const codeFontFamily = useStorage<string>('code-font-family', '')

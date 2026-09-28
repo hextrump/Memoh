@@ -1113,7 +1113,10 @@
         "session": "セッション",
         "cdpUrl": "CDP URL",
         "targets": "ターゲット"
-      }
+      },
+      "bot_designer_list": "自分の Bot を一覧表示",
+      "bot_designer_create": "Bot を作成",
+      "bot_designer_update_persona": "Bot のペルソナを更新"
     },
     "unknownUser": "{platform}ユーザー",
     "files": "ファイル",
@@ -4111,5 +4114,46 @@
   "elicitation": {
     "done": "完了",
     "cancel": "キャンセル"
+  },
+  "messenger": {
+    "title": "チャット",
+    "chats": "チャット",
+    "history": "履歴",
+    "searchBots": "Bot を検索",
+    "searchBotsPlaceholder": "Bot を検索",
+    "newConversation": "新しい会話",
+    "connectApps": "アプリを接続",
+    "noMatches": "一致する Bot がありません",
+    "emptyBots": "Bot はまだありません。＋ で作成できます。",
+    "youPrefix": "あなた：{text}",
+    "creating": "準備中…",
+    "startChat": "会話を始める",
+    "picker": {
+      "title": "新しい会話",
+      "description": "話す Bot を選ぶか、新しく作成します。",
+      "to": "宛先：",
+      "placeholder": "Bot を検索または作成",
+      "createGroup": "新しい Bot を作成",
+      "chatWithDesigner": "Bot デザイナーと設計",
+      "chatWithDesignerHint": "やりたいことを伝えると Bot を作ってくれます",
+      "quickCreate": "クイック作成",
+      "quickCreateHint": "名前とモデルだけ",
+      "botsGroup": "Bot",
+      "newChat": "新しいチャット"
+    },
+    "quickCreate": {
+      "title": "Bot を作成",
+      "description": "名前を付けるだけ。ペルソナは後からチャットや設定で調整できます。",
+      "name": "名前",
+      "namePlaceholder": "例：リサーチアシスタント",
+      "submit": "作成してチャット",
+      "progress": "クラウド PC を準備中… {percent}%",
+      "failed": "Bot を作成できませんでした。"
+    },
+    "market": {
+      "title": "マーケット",
+      "description": "この Bot にアプリとスキルを追加します。",
+      "descriptionFor": "{bot} にアプリとスキルを追加します。"
+    }
   }
 }

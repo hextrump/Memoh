@@ -29,7 +29,7 @@ import i18n from '@/i18n'
 // selection still follows whichever chat view is active. Desktop is a
 // singleton WebRTC viewer per bot (DISPLAY_PANEL_ID).
 
-export type SidebarView = 'sessions' | 'files' | 'schedule' | 'supermarket'
+export type SidebarView = 'bots' | 'sessions' | 'files' | 'schedule' | 'supermarket'
 
 export const CHAT_PANEL_ID = 'chat'
 
@@ -1971,7 +1971,7 @@ export const useWorkspaceTabsStore = defineStore('workspace-tabs', () => {
 
   // ---- sidebar (activity bar + side panel) ---------------------------------
 
-  const sidebarView = useLocalStorage<SidebarView>('workspace-sidebar-view', 'sessions')
+  const sidebarView = useLocalStorage<SidebarView>('workspace-sidebar-view-v2', 'bots')
   const sidebarOpen = useLocalStorage('workspace-sidebar-open', true)
   const sidebarWidth = useLocalStorage('workspace-sidebar-width', 256)
   const workbenchOpen = useLocalStorage('workspace-workbench-open', true)

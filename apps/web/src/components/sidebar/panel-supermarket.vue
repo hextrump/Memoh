@@ -133,7 +133,7 @@
         </p>
         <div
           v-if="catalog.length"
-          class="space-y-1.5 pb-1"
+          :class="layout === 'grid' ? 'grid grid-cols-1 gap-2 pb-1 sm:grid-cols-2' : 'space-y-1.5 pb-1'"
         >
           <div
             v-for="app in catalog"
@@ -239,7 +239,9 @@ const appIconFrameClass = 'flex size-9.5 shrink-0 items-center justify-center ov
 
 const appRowClass = 'flex min-w-0 cursor-pointer items-start gap-3 rounded-[var(--radius-menu-shell)] border border-border bg-card px-3 py-2.5 transition-colors hover:bg-[color:var(--sidebar-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring' /* ui-allow-style: App cards reuse the schedule sidebar card surface and hover token while retaining their content layout. */
 
-const props = defineProps<{ botId: string, canManage: boolean }>()
+// layout: 'rail' (default) is the narrow sidebar list; 'grid' is the
+// two-column market dialog.
+const props = defineProps<{ botId: string, canManage: boolean, layout?: 'rail' | 'grid' }>()
 const { t, locale } = useI18n()
 const { appDependencyIconUrl } = useWorkspaceDependencyText()
 const router = useRouter()

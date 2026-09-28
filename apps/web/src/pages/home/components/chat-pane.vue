@@ -3221,13 +3221,10 @@ useUnfocusedComposerInput({
 
 const showSend = computed(() => Boolean(inputText.value.trim()) || pendingFiles.value.length > 0 || requestedSkills.value.length > 0)
 
-// TODO(voice-input): shelved until a default transcription model ships —
-// today the mic dead-ends users into a settings detour. The whole path (mic
-// button, MediaRecorder/transcription plumbing, the mic⇄send cross-fade)
-// stays in place behind this flag; a disabled send-styled placeholder holds
-// the inactive slot meanwhile. Once the default model lands, open an issue
-// to restore voice input: flip this to true and delete the placeholder.
-const voiceInputEnabled = false
+// Voice input is on (fork: Grok-style composer keeps the mic in the trailing
+// slot). Bots without a transcription model get a toast and a jump to the
+// transcription settings on click — see startVoiceInput.
+const voiceInputEnabled = true
 
 // Whether the trailing slot shows the send button (vs. its inactive
 // occupant — see inactiveSlotVisible just below, its exact complement).

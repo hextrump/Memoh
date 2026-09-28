@@ -1132,7 +1132,10 @@
         "session": "Session",
         "cdpUrl": "CDP URL",
         "targets": "Targets"
-      }
+      },
+      "bot_designer_list": "List my bots",
+      "bot_designer_create": "Create bot",
+      "bot_designer_update_persona": "Update bot persona"
     },
     "unknownUser": "{platform} User",
     "files": "Files",
@@ -4117,5 +4120,46 @@
   "elicitation": {
     "done": "Done",
     "cancel": "Cancel"
+  },
+  "messenger": {
+    "title": "Chats",
+    "chats": "Chats",
+    "history": "History",
+    "searchBots": "Search bots",
+    "searchBotsPlaceholder": "Search bots",
+    "newConversation": "New conversation",
+    "connectApps": "Connect apps",
+    "noMatches": "No matching bots",
+    "emptyBots": "No bots yet. Tap + to create one.",
+    "youPrefix": "You: {text}",
+    "creating": "Setting up…",
+    "startChat": "Start a conversation",
+    "picker": {
+      "title": "New conversation",
+      "description": "Pick a bot to chat with, or create a new one.",
+      "to": "To:",
+      "placeholder": "Search or create a bot",
+      "createGroup": "Create a new bot",
+      "chatWithDesigner": "Design with Bot Designer",
+      "chatWithDesignerHint": "Describe what you need and it builds the bot for you",
+      "quickCreate": "Quick create",
+      "quickCreateHint": "Just a name and a model",
+      "botsGroup": "Bots",
+      "newChat": "New chat"
+    },
+    "quickCreate": {
+      "title": "Create a bot",
+      "description": "Give it a name; you can shape its persona later in chat or settings.",
+      "name": "Name",
+      "namePlaceholder": "e.g. Research Assistant",
+      "submit": "Create and chat",
+      "progress": "Setting up its computer… {percent}%",
+      "failed": "Could not create the bot."
+    },
+    "market": {
+      "title": "Market",
+      "description": "Add apps and skills to this bot.",
+      "descriptionFor": "Add apps and skills to {bot}."
+    }
   }
 }

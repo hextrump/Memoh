@@ -24,10 +24,55 @@
       data-native-sidebar-surface
       :class="macTrafficReserve ? 'pl-22' : 'pl-3'"
     >
-      <div class="min-w-0 flex-1">
-        <BotSwitcher :full-width="!macTrafficReserve" />
+      <!-- Messenger header: title plus round search / new-conversation
+           buttons. Search filters the bot list below; ＋ opens the recipient
+           picker. -->
+      <span class="min-w-0 flex-1 truncate pl-1 text-base font-semibold text-foreground">
+        {{ t('messenger.title') }}
+      </span>
+      <div class="flex shrink-0 items-center gap-1.5 [-webkit-app-region:no-drag]">
+        <Button
+          variant="secondary"
+          size="icon-sm"
+          class="rounded-full"
+          :title="t('messenger.searchBots')"
+          :aria-label="t('messenger.searchBots')"
+          :aria-pressed="botFilterOpen"
+          @click="toggleBotFilter"
+        >
+          <Search
+            :stroke-width="2"
+            class="size-4"
+          />
+        </Button>
+        <Button
+          variant="secondary"
+          size="icon-sm"
+          class="rounded-full"
+          :title="t('messenger.newConversation')"
+          :aria-label="t('messenger.newConversation')"
+          @click="pickerOpen = true"
+        >
+          <Plus
+            :stroke-width="2"
+            class="size-4"
+          />
+        </Button>
       </div>
     </header>
+
+    <div
+      v-if="botFilterOpen"
+      class="shrink-0 px-3 pb-1"
+    >
+      <Input
+        ref="botFilterInput"
+        v-model="botFilter"
+        :placeholder="t('messenger.searchBotsPlaceholder')"
+        :aria-label="t('messenger.searchBots')"
+        @keydown.esc="toggleBotFilter"
+      />
+    </div>
 
     <!-- Horizontal nav + search: the active tab is a pill with
          icon + label, the others collapse to icon-only. These tabs are plain
@@ -103,7 +148,10 @@
 
       <div class="flex-1" />
 
+      <!-- Session search belongs to the per-bot views; the header search
+           already covers the bot list. -->
       <Button
+        v-if="sidebarView !== 'bots'"
         variant="ghost"
         size="icon-sm"
         class="shrink-0 rounded-full text-muted-foreground hover:text-foreground"
@@ -123,6 +171,11 @@
          of a hard rule above it, which would be lopsided since the nav above
          the list has no divider of its own. -->
     <div class="relative min-h-0 flex-1 overflow-hidden">
+      <BotConversations
+        v-show="sidebarView === 'bots'"
+        :filter="botFilter"
+        class="h-full"
+      />
       <PanelSessions
         v-show="sidebarView === 'sessions'"
         class="h-full"
@@ -134,13 +187,6 @@
       />
       <PanelSchedule
         v-show="sidebarView === 'schedule'"
-        class="h-full"
-      />
-      <PanelSupermarket
-        v-if="supermarketMounted"
-        v-show="sidebarView === 'supermarket'"
-        :bot-id="currentBotId || ''"
-        :can-manage="hasBotPermission(currentBot?.current_user_permissions, 'manage')"
         class="h-full"
       />
       <div
@@ -166,6 +212,16 @@
         <UserMenu />
       </div>
       <UpdateChip />
+      <Button
+        variant="secondary"
+        size="sm"
+        class="shrink-0 rounded-full"
+        :disabled="!currentBotId"
+        @click="marketOpen = true"
+      >
+        <Blocks class="size-4" />
+        {{ t('messenger.connectApps') }}
+      </Button>
     </div>
 
     <!-- Width resize handle -->
@@ -180,26 +236,40 @@
     </div>
 
     <SessionSearchDialog v-model:open="searchOpen" />
+    <RecipientPicker
+      v-model:open="pickerOpen"
+      @quick-create="quickCreateOpen = true"
+    />
+    <BotQuickCreateDialog v-model:open="quickCreateOpen" />
+    <MarketDialog
+      v-if="marketMounted"
+      v-model:open="marketOpen"
+      :bot-id="currentBotId || ''"
+      :bot-label="currentBot?.display_name || currentBot?.name || ''"
+      :can-manage="hasBotPermission(currentBot?.current_user_permissions, 'manage')"
+    />
   </aside>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch, type Component } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
-import { Files, MessageCircle, Search, Calendar, Blocks } from 'lucide-vue-next'
-import { BadgeCount, Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@felinic/ui'
+import { Files, History, MessageCircle, Search, Calendar, Blocks, Plus } from 'lucide-vue-next'
+import { BadgeCount, Button, Input, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@felinic/ui'
 import { useSettingsStore } from '@/store/settings'
 import { useChatStore } from '@/store/chat-list'
 import { useWorkspaceTabsStore, type SidebarView } from '@/store/workspace-tabs'
 import { hasBotPermission } from '@/utils/bot-permissions'
-import BotSwitcher from './bot-switcher.vue'
+import BotConversations from './bot-conversations.vue'
+import RecipientPicker from '@/pages/home/components/recipient-picker.vue'
+import BotQuickCreateDialog from '@/components/bot-quick-create-dialog.vue'
+import MarketDialog from '@/components/market-dialog.vue'
 import UserMenu from './user-menu.vue'
 import UpdateChip from './update-chip.vue'
 import PanelSessions from './panel-sessions.vue'
 import PanelFiles from './panel-files.vue'
 import PanelSchedule from './panel-schedule.vue'
-import PanelSupermarket from './panel-supermarket.vue'
 import SessionSearchDialog from './session-search-dialog.vue'
 
 defineProps<{
@@ -246,11 +316,29 @@ const asideStyle = computed<Record<string, string>>(() => ({
 }))
 
 const searchOpen = ref(false)
-const supermarketMounted = ref(false)
-/** Keep installation dialogs alive when switching sidebar views after the first visit. */
-watch(sidebarView, (view) => {
-  if (view === 'supermarket') supermarketMounted.value = true
-}, { immediate: true })
+const pickerOpen = ref(false)
+const quickCreateOpen = ref(false)
+const marketOpen = ref(false)
+const marketMounted = ref(false)
+/** Keep installation dialogs alive after the market is first opened. */
+watch(marketOpen, (open) => {
+  if (open) marketMounted.value = true
+})
+
+const botFilterOpen = ref(false)
+const botFilter = ref('')
+const botFilterInput = ref<InstanceType<typeof Input> | null>(null)
+async function toggleBotFilter() {
+  botFilterOpen.value = !botFilterOpen.value
+  if (!botFilterOpen.value) {
+    botFilter.value = ''
+    return
+  }
+  store.selectSidebarView('bots')
+  await nextTick()
+  const el = (botFilterInput.value?.$el as HTMLElement | undefined)
+  ;(el?.matches('input') ? el : el?.querySelector('input'))?.focus()
+}
 
 const currentBot = computed(() =>
   bots.value.find(bot => bot.id === currentBotId.value) ?? null,
@@ -261,20 +349,20 @@ const canWorkspaceRead = computed(() =>
 
 const availableViews = computed<ActivityView[]>(() => {
   const views: ActivityView[] = [
-    { id: 'sessions', label: t('chat.activityBar.sessions'), icon: MessageCircle },
+    { id: 'bots', label: t('messenger.chats'), icon: MessageCircle },
+    { id: 'sessions', label: t('messenger.history'), icon: History },
   ]
   if (canWorkspaceRead.value) {
     views.push({ id: 'files', label: t('chat.activityBar.files'), icon: Files })
   }
   views.push({ id: 'schedule', label: t('chat.activityBar.schedule'), icon: Calendar })
-  views.push({ id: 'supermarket', label: t('supermarket.title'), icon: Blocks })
   return views
 })
 
 // If the persisted view becomes unavailable (e.g. permission lost), fall back.
 watch(availableViews, (views) => {
   if (!views.some(view => view.id === sidebarView.value)) {
-    sidebarView.value = 'sessions'
+    sidebarView.value = 'bots'
   }
 }, { immediate: true })
 

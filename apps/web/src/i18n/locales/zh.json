@@ -1144,7 +1144,10 @@
         "session": "会话",
         "cdpUrl": "CDP 地址",
         "targets": "目标页面"
-      }
+      },
+      "bot_designer_list": "列出我的 Bot",
+      "bot_designer_create": "创建 Bot",
+      "bot_designer_update_persona": "更新 Bot 人设"
     },
     "unknownUser": "{platform}用户",
     "files": "文件管理",
@@ -4117,5 +4120,46 @@
   "elicitation": {
     "done": "已完成",
     "cancel": "取消"
+  },
+  "messenger": {
+    "title": "聊天",
+    "chats": "聊天",
+    "history": "历史",
+    "searchBots": "搜索 Bot",
+    "searchBotsPlaceholder": "搜索 Bot",
+    "newConversation": "新对话",
+    "connectApps": "连接应用",
+    "noMatches": "没有匹配的 Bot",
+    "emptyBots": "还没有 Bot，点 ＋ 创建一个。",
+    "youPrefix": "你：{text}",
+    "creating": "正在准备…",
+    "startChat": "开始对话",
+    "picker": {
+      "title": "新对话",
+      "description": "选择一个 Bot 聊天，或创建新的 Bot。",
+      "to": "收件人：",
+      "placeholder": "搜索或创建 Bot",
+      "createGroup": "创建新 Bot",
+      "chatWithDesigner": "和 Bot 设计师一起设计",
+      "chatWithDesignerHint": "说出你的需求，它会帮你建好 Bot",
+      "quickCreate": "快速创建",
+      "quickCreateHint": "只需名字和模型",
+      "botsGroup": "Bot",
+      "newChat": "新建聊天"
+    },
+    "quickCreate": {
+      "title": "创建 Bot",
+      "description": "起个名字就行，人设之后可以在聊天或设置里调整。",
+      "name": "名字",
+      "namePlaceholder": "例如：研究助理",
+      "submit": "创建并开始聊天",
+      "progress": "正在准备它的云电脑… {percent}%",
+      "failed": "创建 Bot 失败。"
+    },
+    "market": {
+      "title": "市场",
+      "description": "为这个 Bot 添加应用和技能。",
+      "descriptionFor": "为 {bot} 添加应用和技能。"
+    }
   }
 }

@@ -169,7 +169,7 @@ const BUCKETS: Array<[ToolBucket, Set<string>]> = [
     'read', 'list', 'web_search', 'web_fetch', 'search_memory', 'search_messages', 'get_messages',
     'get_contacts', 'list_sessions', 'list_email', 'read_email', 'list_email_accounts',
     'list_schedule', 'get_schedule', 'list_skills', 'list_models', 'list_workdirs',
-    'list_acp_agents', 'list_execution_locations',
+    'list_acp_agents', 'list_execution_locations', 'bot_designer_list',
   ])],
   ['edit', new Set(['write', 'edit', 'apply_patch'])],
   ['run', new Set(['exec'])],
@@ -877,6 +877,14 @@ export function getToolDisplay(block: ToolCallBlock): ToolDisplay {
         expandable: true,
       }
     }
+    case 'bot_designer_list':
+      return { icon: Bot, actionKey: 'bot_designer_list', target: '', expandable: true }
+    case 'bot_designer_create': {
+      const displayName = pickString(input, 'display_name', 'displayName')
+      return { icon: Sparkles, actionKey: 'bot_designer_create', target: displayName, expandable: true }
+    }
+    case 'bot_designer_update_persona':
+      return { icon: FilePen, actionKey: 'bot_designer_update_persona', target: pickString(input, 'bot_id', 'botId'), expandable: true }
     case 'list_models':
       return { icon: Boxes, actionKey: 'list_models', target: '', expandable: true }
     case 'list_workdirs':
