@@ -1009,16 +1009,7 @@ func (p *BrowserProvider) runCDPAction(ctx context.Context, botID string, args m
 		if targetURL == "" {
 			return nil, errors.New("url is required for navigate")
 		}
-		result, err := page.conn.Call(ctx, "Page.navigate", map[string]any{"url": targetURL})
-		if err != nil {
-			return nil, err
-		}
-		_ = page.waitReady(ctx, timeoutArg(args, 30000))
-		nav := map[string]any{}
-		_ = json.Unmarshal(result, &nav)
-		currentURL, _ := page.evaluateString(ctx, "location.href")
-		nav["url"] = currentURL
-		return nav, nil
+		return page.navigate(ctx, targetURL, timeoutArg(args, 30000))
 	case "click", "double_click":
 		target := browserTargetArg(args, "selector", "ref")
 		if err := target.require(action); err != nil {
@@ -1897,6 +1888,34 @@ try {
 			return err
 		}
 	}
+}
+
+func (p *cdpPage) navigate(ctx context.Context, targetURL string, timeoutMS int) (map[string]any, error) {
+	result, err := p.conn.Call(ctx, "Page.navigate", map[string]any{"url": targetURL})
+	if err != nil {
+		return nil, err
+	}
+	nav := map[string]any{}
+	if err := json.Unmarshal(result, &nav); err != nil {
+		return nil, fmt.Errorf("decode browser navigation result: %w", err)
+	}
+	// CDP reports DNS, connection and certificate failures inside the result,
+	// not as protocol errors. Never let those look like successful navigation.
+	if errorText, _ := nav["errorText"].(string); errorText != "" {
+		return nil, fmt.Errorf("browser navigation failed: %s", errorText)
+	}
+	if download, _ := nav["isDownload"].(bool); download {
+		return nil, errors.New("browser navigation started a download instead of displaying a page")
+	}
+	if err := p.waitReady(ctx, timeoutMS); err != nil {
+		return nil, fmt.Errorf("browser navigation did not finish: %w", err)
+	}
+	currentURL, err := p.evaluateString(ctx, "location.href")
+	if err != nil {
+		return nil, fmt.Errorf("verify browser navigation URL: %w", err)
+	}
+	nav["url"] = currentURL
+	return nav, nil
 }
 
 func (p *cdpPage) waitReady(ctx context.Context, timeoutMS int) error {
