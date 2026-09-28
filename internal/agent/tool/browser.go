@@ -727,7 +727,9 @@ for pid in $BROWSER_PIDS; do
   kill -9 "$pid" 2>/dev/null || true
 done
 rm -f /tmp/memoh-display-browser/SingletonLock /tmp/memoh-display-browser/SingletonSocket /tmp/memoh-display-browser/SingletonCookie
-nohup "$BROWSER" \
+# The desktop's Gtk/Modules=appmenu-gtk-module XSETTING segfaults Chromium.
+UBUNTU_MENUPROXY=0 GTK_A11Y=1 nohup "$BROWSER" \
+  --force-renderer-accessibility \
   --no-sandbox \
   --disable-dev-shm-usage \
   --disable-gpu \

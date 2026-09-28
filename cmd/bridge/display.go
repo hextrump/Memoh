@@ -546,7 +546,9 @@ func startDisplayBrowser(ctx context.Context) {
 	if url == "" {
 		url = "about:blank"
 	}
-	startDisplayCommand(ctx, "browser", browser,
+	// The desktop style broadcasts Gtk/Modules=appmenu-gtk-module over
+	// XSETTINGS; that module segfaults Chromium on start, so opt the browser out.
+	startDisplayCommandWithEnv(ctx, "browser", []string{"UBUNTU_MENUPROXY=0"}, browser,
 		"--no-sandbox",
 		"--disable-dev-shm-usage",
 		"--disable-gpu",
@@ -772,6 +774,10 @@ func stopXvncProcesses(ctx context.Context) {
 }
 
 func startDisplayCommand(ctx context.Context, name, path string, args ...string) {
+	startDisplayCommandWithEnv(ctx, name, nil, path, args...)
+}
+
+func startDisplayCommandWithEnv(ctx context.Context, name string, extraEnv []string, path string, args ...string) {
 	info, err := os.Stat(path)
 	if err != nil {
 		logger.FromContext(ctx).Warn("display helper unavailable", slog.String("name", name), slog.String("path", path), slog.Any("error", err))
@@ -782,7 +788,7 @@ func startDisplayCommand(ctx context.Context, name, path string, args ...string)
 		return
 	}
 	cmd := exec.CommandContext(ctx, path, args...) //nolint:gosec // path is a fixed runtime bundle executable
-	cmd.Env = withDisplayEnv(os.Environ())
+	cmd.Env = append(withDisplayEnv(os.Environ()), extraEnv...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
