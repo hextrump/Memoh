@@ -10,3 +10,13 @@ export function botInitials(label: string): string {
     .toUpperCase()
   return initials || 'B'
 }
+
+/** Flattens a markdown message into a one-line preview (drops emphasis, code, heading and quote markers). */
+export function plainPreview(text: string): string {
+  return text
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/(\*\*|__|~~|`+)/g, '')
+    .replace(/^\s{0,3}(#{1,6}|>|[-*+])\s+/gm, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}

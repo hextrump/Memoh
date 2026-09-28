@@ -84,7 +84,7 @@ import { Avatar, AvatarFallback, AvatarImage, Spinner } from '@felinic/ui'
 import { useChatStore } from '@/store/chat-list'
 import { useWorkspaceTabsStore } from '@/store/workspace-tabs'
 import { usePinnedBots } from '@/composables/usePinnedBots'
-import { botInitials } from '@/utils/bot-initials'
+import { botInitials, plainPreview } from '@/utils/bot-initials'
 import { formatConversationTime } from '@/utils/conversation-time'
 
 // Same sidebar hover token the Explorer rows use (file-manager/tree-row.ts).
@@ -146,7 +146,7 @@ const rows = computed<ConversationRow[]>(() => {
     const activity = activityByBot.value.get(id)
     const lastAt = activity?.last_activity_at || bot.updated_at || bot.created_at
     const pending = bot.status === 'creating' || bot.status === 'deleting'
-    let preview = activity?.preview_text?.trim() ?? ''
+    let preview = plainPreview(activity?.preview_text ?? '')
     if (preview && activity?.role === 'user') preview = t('messenger.youPrefix', { text: preview })
     if (!preview) preview = pending ? t('messenger.creating') : t('messenger.startChat')
     out.push({

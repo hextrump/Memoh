@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { formatConversationTime } from './conversation-time'
-import { botInitials } from './bot-initials'
+import { botInitials, plainPreview } from './bot-initials'
 
 describe('formatConversationTime', () => {
   const now = new Date(2026, 8, 28, 15, 0)
@@ -28,5 +28,12 @@ describe('botInitials', () => {
     expect(botInitials('crypto price-bot')).toBe('CP')
     expect(botInitials('Bot 设计师')).toBe('B设')
     expect(botInitials('  ')).toBe('B')
+  })
+})
+
+describe('plainPreview', () => {
+  it('drops markdown markers', () => {
+    expect(plainPreview('**BTC** = $83,045 (`CMC`)')).toBe('BTC = $83,045 (CMC)')
+    expect(plainPreview('# Title\n- item [link](https://x.y)')).toBe('Title item link')
   })
 })
