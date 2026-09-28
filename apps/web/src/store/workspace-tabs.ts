@@ -1610,7 +1610,7 @@ export const useWorkspaceTabsStore = defineStore('workspace-tabs', () => {
     if (!hasCurrentPermission('manage')) return
     const dock = api.value
     if (!dock) return
-    const group = dock.getGroup(groupId)
+    const group = dock.groups.find(g => g.id === groupId)
     const hasChat = group?.panels.some(panel => panelComponentOf(panel.id) === 'chat')
     if (isMobile.value || !group || !hasChat) {
       openDisplay(groupId)
