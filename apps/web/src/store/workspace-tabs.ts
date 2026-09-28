@@ -1599,7 +1599,27 @@ export const useWorkspaceTabsStore = defineStore('workspace-tabs', () => {
       openDisplay()
       return
     }
+    placeDisplayRightOf(dock, primaryGroup)
+  }
 
+  // Manual "+" → Desktop from a group that holds a conversation opens the
+  // viewer beside it, the same layout the agent path uses, instead of stacking
+  // it as a tab over the chat. Other groups (terminal-only, a right split) and
+  // mobile keep the ordinary tab behavior.
+  function openDisplayBeside(groupId: string) {
+    if (!hasCurrentPermission('manage')) return
+    const dock = api.value
+    if (!dock) return
+    const group = dock.getGroup(groupId)
+    const hasChat = group?.panels.some(panel => panelComponentOf(panel.id) === 'chat')
+    if (isMobile.value || !group || !hasChat) {
+      openDisplay(groupId)
+      return
+    }
+    placeDisplayRightOf(dock, group)
+  }
+
+  function placeDisplayRightOf(dock: DockviewApi, primaryGroup: DockviewGroupPanel) {
     const adjacentRight = dock.adjacentGroupInDirection(primaryGroup, 'right')
     const secondaryGroup = dock.groups.find(group => group.id === adjacentRight?.id)
     const existingDisplays = dock.panels.filter(panel => panelComponentOf(panel.id) === 'display')
@@ -2327,6 +2347,7 @@ export const useWorkspaceTabsStore = defineStore('workspace-tabs', () => {
     openBrowser,
     openBrowserAt,
     openDisplay,
+    openDisplayBeside,
     splitGroup,
     openSchedule,
     closeTab,

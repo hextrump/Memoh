@@ -38,7 +38,7 @@
         </DropdownMenuItem>
         <DropdownMenuItem
           v-if="canSplitExtras"
-          @select="store.openDisplay(props.params.group.id)"
+          @select="store.openDisplayBeside(props.params.group.id)"
         >
           <ComputerIcon />
           {{ t('chat.tabBarToolkit.openDesktop') }}

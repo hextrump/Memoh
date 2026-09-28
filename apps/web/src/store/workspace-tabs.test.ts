@@ -824,6 +824,28 @@ describe('workspace layout store', () => {
     expect(display.group?.id).toBe(rightChat.group?.id)
   })
 
+  it('opens a manual Desktop beside the chat group, then as a tab elsewhere', () => {
+    const store = useWorkspaceTabsStore()
+    const dock = createFakeDock()
+    store.registerApi(dock as never)
+    store.openDraftChat({ title: 'Session' })
+    const chatGroup = dock.activePanel!.group!
+
+    store.openDisplayBeside(chatGroup.id)
+
+    const display = dock.getPanel('display:1')!
+    expect(display.group?.id).not.toBe(chatGroup.id)
+    expect(dock.adjacentGroupInDirection(chatGroup, 'right')?.id).toBe(display.group?.id)
+    expect(dock.groups).toHaveLength(2)
+
+    // Closing and reopening restores the same side-by-side layout.
+    display.api.close()
+    expect(dock.groups).toHaveLength(1)
+    store.openDisplayBeside(chatGroup.id)
+    expect(dock.getPanel('display:1')?.group?.id).not.toBe(chatGroup.id)
+    expect(dock.groups).toHaveLength(2)
+  })
+
   it('refuses to open a browser tab for a non-local address', () => {
     const store = useWorkspaceTabsStore()
     const dock = createFakeDock()
