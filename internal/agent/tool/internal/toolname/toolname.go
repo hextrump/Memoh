@@ -77,6 +77,10 @@ func ToolGenerateVideo() Name   { return newName("generate_video") }
 func ToolTranscribeAudio() Name { return newName("transcribe_audio") }
 func ToolAskUser() Name         { return newName(userinput.ToolNameAskUser) }
 
+func ToolBotDesignerList() Name          { return newName("bot_designer_list") }
+func ToolBotDesignerCreate() Name        { return newName("bot_designer_create") }
+func ToolBotDesignerUpdatePersona() Name { return newName("bot_designer_update_persona") }
+
 func ToolListEmailAccounts() Name { return newName("list_email_accounts") }
 func ToolSendEmail() Name         { return newName("send_email") }
 func ToolListEmail() Name         { return newName("list_email") }
@@ -91,6 +95,7 @@ var all = []Name{
 	ToolBrowserAction(), ToolBrowserObserve(), ToolComputerObserve(), ToolComputerAction(), ToolBrowserRemoteSession(),
 	ToolWebSearch(), ToolWebFetch(), ToolGenerateImage(), ToolGenerateVideo(), ToolTranscribeAudio(), ToolAskUser(),
 	ToolListEmailAccounts(), ToolSendEmail(), ToolListEmail(), ToolReadEmail(),
+	ToolBotDesignerList(), ToolBotDesignerCreate(), ToolBotDesignerUpdatePersona(),
 }
 
 // All returns the complete built-in Memoh tool catalog.

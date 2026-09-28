@@ -38,6 +38,12 @@ func ToolSendMessage() ToolName    { return toolname.ToolSendMessage() }
 func ToolListAgents() ToolName     { return toolname.ToolListAgents() }
 func ToolListModels() ToolName     { return toolname.ToolListModels() }
 
+func ToolBotDesignerList() ToolName   { return toolname.ToolBotDesignerList() }
+func ToolBotDesignerCreate() ToolName { return toolname.ToolBotDesignerCreate() }
+func ToolBotDesignerUpdatePersona() ToolName {
+	return toolname.ToolBotDesignerUpdatePersona()
+}
+
 func ToolListWorkdirs() ToolName  { return toolname.ToolListWorkdirs() }
 func ToolListACPAgents() ToolName { return toolname.ToolListACPAgents() }
 

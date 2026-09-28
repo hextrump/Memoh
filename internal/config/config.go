@@ -83,6 +83,20 @@ type Config struct {
 	BridgeTLS             BridgeTLSConfig             `toml:"bridge_tls"`
 	WebhookTunnel         WebhookTunnelConfig         `toml:"webhook_tunnel"`
 	ConnectIt             ConnectItConfig             `toml:"connect_it"`
+	BotDesigner           BotDesignerConfig           `toml:"bot_designer"`
+}
+
+// BotDesignerConfig controls the built-in "Bot Designer" bot seeded for the
+// admin on startup. Enabled defaults to true when unset. ModelID accepts a
+// model UUID or a provider model id (e.g. "MiniMax-M2.7"); when empty the
+// first enabled chat model is used.
+type BotDesignerConfig struct {
+	Enabled *bool  `toml:"enabled"`
+	ModelID string `toml:"model_id"`
+}
+
+func (c BotDesignerConfig) IsEnabled() bool {
+	return c.Enabled == nil || *c.Enabled
 }
 
 // ConnectItConfig is the deployment-level credential Memoh uses to call its
