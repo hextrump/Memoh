@@ -180,9 +180,12 @@ async function openBot(row: ConversationRow) {
   if (row.disabled) return
   const id = row.bot.id ?? ''
   workspaceTabs.closeMobileNav()
-  if (id === currentBotId.value) return
-  await chatStore.selectBot(id)
-  await router.push({ name: 'bot', params: { botName: row.bot.name ?? id } })
+  if (id !== currentBotId.value) {
+    await chatStore.selectBot(id)
+    await router.push({ name: 'bot', params: { botName: row.bot.name ?? id } })
+  }
+  // A conversation row always lands on its latest thread, including a re-click
+  // on the current bot after wandering off to a draft.
   if (row.sessionId) workspaceTabs.openSessionChat({ sessionId: row.sessionId })
 }
 </script>

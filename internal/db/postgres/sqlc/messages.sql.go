@@ -3298,7 +3298,7 @@ WHERE m.team_id = public.memoh_current_team_id()
     OR jsonb_typeof(m.content->'content') = 'string'
     OR jsonb_path_exists(m.content, '$.content[*] ? (@.type == "text")')
   )
-ORDER BY m.bot_id, m.created_at DESC, m.id DESC
+ORDER BY m.bot_id, m.created_at DESC, m.turn_position DESC, m.turn_message_seq DESC, m.id DESC
 `
 
 type ListBotLastMessagesRow struct {
@@ -3311,6 +3311,7 @@ type ListBotLastMessagesRow struct {
 }
 
 // Latest user/assistant message with visible text per bot, for the messenger-style bot list.
+// A user message and its reply share the turn's created_at; turn order breaks the tie.
 func (q *Queries) ListBotLastMessages(ctx context.Context, botIds []pgtype.UUID) ([]ListBotLastMessagesRow, error) {
 	rows, err := q.db.Query(ctx, listBotLastMessages, botIds)
 	if err != nil {

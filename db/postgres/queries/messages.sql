@@ -3281,4 +3281,5 @@ WHERE m.team_id = public.memoh_current_team_id()
     OR jsonb_typeof(m.content->'content') = 'string'
     OR jsonb_path_exists(m.content, '$.content[*] ? (@.type == "text")')
   )
-ORDER BY m.bot_id, m.created_at DESC, m.id DESC;
+-- A user message and its reply share the turn's created_at; turn order breaks the tie.
+ORDER BY m.bot_id, m.created_at DESC, m.turn_position DESC, m.turn_message_seq DESC, m.id DESC;
