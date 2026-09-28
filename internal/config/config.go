@@ -52,6 +52,14 @@ const (
 	DefaultAgentToolOutputLines  = 2000
 	DefaultAgentSystemFilesBytes = 32 * 1024
 
+	// DefaultBrowserLaunchAPIPort must match cmd/bridge/browser.go's
+	// antBrowserLaunchAPIPort: the workspace's ant-chrome (Ant-Browser fork +
+	// fingerprint-chromium) Launch API and unified CDP reverse-proxy port.
+	DefaultBrowserLaunchAPIPort              = "19876"
+	DefaultBrowserFingerprintChromiumVersion = "148.0.7778.215"
+	DefaultBrowserProxyMode                  = "direct"
+	DefaultBrowserFingerprintPlatform        = "windows"
+
 	ImagePullPolicyIfNotPresent = "if_not_present"
 	ImagePullPolicyAlways       = "always"
 	ImagePullPolicyNever        = "never"
@@ -72,6 +80,7 @@ type Config struct {
 	Docker                DockerConfig                `toml:"docker"`
 	Apple                 AppleConfig                 `toml:"apple"`
 	Workspace             WorkspaceConfig             `toml:"workspace"`
+	Browser               BrowserConfig               `toml:"browser"`
 	Postgres              PostgresConfig              `toml:"postgres"`
 	PGVector              PGVectorConfig              `toml:"pgvector"`
 	Registry              RegistryConfig              `toml:"registry"`
@@ -511,6 +520,49 @@ type WorkspaceConfig struct {
 	// should configure bridge_path because the Server no longer owns a toolkit
 	// or workspace templates directory.
 	RuntimeDir string `toml:"runtime_dir"`
+}
+
+// BrowserConfig controls the workspace's antmemo browser: Ant-Browser
+// (github.com/felinics/ant-browser, vendored as third_party/ant-browser)
+// driving a fingerprint-chromium core. There is no Chrome/Chromium fallback
+// path — this is the only browser backend the workspace image ships.
+type BrowserConfig struct {
+	LaunchAPIPort              string `toml:"launch_api_port"`
+	FingerprintChromiumVersion string `toml:"fingerprint_chromium_version"`
+	DefaultFingerprintPlatform string `toml:"default_fingerprint_platform"`
+	DefaultProxyMode           string `toml:"default_proxy_mode"`
+}
+
+func (c BrowserConfig) LaunchAPIPortOrDefault() string {
+	port := strings.TrimSpace(c.LaunchAPIPort)
+	if port == "" {
+		return DefaultBrowserLaunchAPIPort
+	}
+	return port
+}
+
+func (c BrowserConfig) FingerprintChromiumVersionOrDefault() string {
+	version := strings.TrimSpace(c.FingerprintChromiumVersion)
+	if version == "" {
+		return DefaultBrowserFingerprintChromiumVersion
+	}
+	return version
+}
+
+func (c BrowserConfig) DefaultProxyModeOrDefault() string {
+	mode := strings.TrimSpace(c.DefaultProxyMode)
+	if mode == "" {
+		return DefaultBrowserProxyMode
+	}
+	return mode
+}
+
+func (c BrowserConfig) DefaultFingerprintPlatformOrDefault() string {
+	platform := strings.TrimSpace(c.DefaultFingerprintPlatform)
+	if platform == "" {
+		return DefaultBrowserFingerprintPlatform
+	}
+	return platform
 }
 
 // ImageRef returns the fully qualified image reference for the base image,

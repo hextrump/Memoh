@@ -631,7 +631,7 @@ func newSkillsTestEnvWithMetadata(t *testing.T, metadata map[string]any) *skills
 	db := &skillsTestDB{userID: userID, botID: botID, metadataJSON: metadataJSON}
 	queries := postgresstore.NewQueries(sqlc.New(db))
 	accountStore := postgresstore.NewWithQueries(sqlc.New(db))
-	manager := workspace.NewManager(slog.Default(), nil, nil, cfg, "", nil, queries)
+	manager := workspace.NewManager(slog.Default(), nil, nil, cfg, config.BrowserConfig{}, "", nil, queries)
 	handler := NewContainerdHandler(
 		slog.Default(),
 		manager,

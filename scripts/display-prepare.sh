@@ -27,12 +27,7 @@ find_xvnc() {
   return 1
 }
 find_browser() {
-  for candidate in google-chrome-stable google-chrome chromium chromium-browser; do
-    if has_cmd "$candidate"; then
-      command -v "$candidate"
-      return 0
-    fi
-  done
+  [ -x /opt/memoh/toolkit/browser/bin/ant-chrome ] && { printf '%s\n' /opt/memoh/toolkit/browser/bin/ant-chrome; return 0; }
   return 1
 }
 has_desktop() {
@@ -56,30 +51,6 @@ xvnc_pids() {
 xvnc_running() {
   [ -n "$(xvnc_pids)" ]
 }
-browser_pids() {
-  for proc_dir in /proc/[0-9]*; do
-    [ -d "$proc_dir" ] || continue
-    pid="${proc_dir#/proc/}"
-    cmdline="$(tr '\000' '\n' <"$proc_dir/cmdline" 2>/dev/null || true)"
-    printf '%s\n' "$cmdline" | grep -Eq '(^|/)(google-chrome-stable|google-chrome|chromium|chromium-browser|chrome)$' || continue
-    printf '%s\n' "$pid"
-  done
-  return 0
-}
-browser_cdp_running() {
-  for proc_dir in /proc/[0-9]*; do
-    [ -d "$proc_dir" ] || continue
-    cmdline="$(tr '\000' '\n' <"$proc_dir/cmdline" 2>/dev/null || true)"
-    printf '%s\n' "$cmdline" | grep -Eq '(^|/)(google-chrome-stable|google-chrome|chromium|chromium-browser|chrome)$' || continue
-    printf '%s\n' "$cmdline" | grep -Eq '^--type=' && continue
-    printf '%s\n' "$cmdline" | grep -Fq -- '--remote-debugging-port=9222' && return 0
-  done
-  return 1
-}
-cleanup_browser_profile() {
-  [ -n "$(browser_pids)" ] && return 0
-  rm -f /tmp/memoh-display-browser/SingletonLock /tmp/memoh-display-browser/SingletonSocket /tmp/memoh-display-browser/SingletonCookie
-}
 stop_xvnc() {
   pids="$(xvnc_pids)"
   [ -n "$pids" ] || return 0
@@ -88,18 +59,6 @@ stop_xvnc() {
   done
   sleep 1
   pids="$(xvnc_pids)"
-  for pid in $pids; do
-    kill -9 "$pid" 2>/dev/null || true
-  done
-}
-stop_browsers() {
-  pids="$(browser_pids)"
-  [ -n "$pids" ] || return 0
-  for pid in $pids; do
-    kill "$pid" 2>/dev/null || true
-  done
-  sleep 1
-  pids="$(browser_pids)"
   for pid in $pids; do
     kill -9 "$pid" 2>/dev/null || true
   done
@@ -212,7 +171,7 @@ progress 10 checking "Checking display runtime"
 XVNC="$(find_xvnc || true)"
 BROWSER="$(find_browser || true)"
 [ -n "$XVNC" ] || { echo "Workspace image contract violation: Xvnc is unavailable." >&2; exit 1; }
-[ -n "$BROWSER" ] || { echo "Workspace image contract violation: Chrome or Chromium is unavailable." >&2; exit 1; }
+[ -n "$BROWSER" ] || { echo "Workspace image contract violation: ant-chrome is unavailable." >&2; exit 1; }
 has_desktop || { echo "Workspace image contract violation: desktop session runtime is unavailable." >&2; exit 1; }
 progress 18 checking "Display runtime is available"
 
@@ -282,13 +241,7 @@ progress 90 styling "Applying desktop style"
 /bin/sh /opt/memoh/scripts/display-apply-style.sh --ensure
 
 progress 94 browser "Launching browser"
-if ! browser_cdp_running; then
-  if [ -n "$(browser_pids)" ]; then
-    stop_browsers
-  fi
-  cleanup_browser_profile
-  GTK_A11Y=1 nohup "$BROWSER" --no-sandbox --disable-dev-shm-usage --disable-gpu --no-first-run --no-default-browser-check --force-renderer-accessibility --remote-debugging-address=127.0.0.1 --remote-debugging-port=9222 --remote-allow-origins='*' --user-data-dir=/tmp/memoh-display-browser about:blank >/tmp/memoh-browser.log 2>&1 &
-fi
+/opt/memoh/bridge browser ensure >/tmp/memoh-browser.log 2>&1 || { cat /tmp/memoh-browser.log >&2 2>/dev/null || true; exit 1; }
 
 emit_complete
 exit 0

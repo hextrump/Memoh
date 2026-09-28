@@ -311,7 +311,7 @@ func TestRemotePrimaryOfflineNeverFallsBackToNative(t *testing.T) {
 		IsPrimary:     true,
 		RuntimeUserID: remoteTestOwnerID, BotOwnerUserID: remoteTestOwnerID,
 	}}}
-	manager := NewManager(slog.Default(), nil, nil, config.WorkspaceConfig{}, "", nil)
+	manager := NewManager(slog.Default(), nil, nil, config.WorkspaceConfig{}, config.BrowserConfig{}, "", nil)
 	manager.SetRemoteWorkspaceService(&RemoteWorkspaceService{store: store, runtimes: fakeRuntimeConnections{}})
 	if _, err := manager.MCPClient(context.Background(), remoteTestBotID); !errors.Is(err, ErrRemoteRuntimeOffline) {
 		t.Fatalf("MCPClient error = %v, want offline", err)
@@ -333,7 +333,7 @@ func TestRemotePrimaryDoesNotHideNativeContainerStatus(t *testing.T) {
 		IsPrimary:     true,
 		RuntimeUserID: remoteTestOwnerID, BotOwnerUserID: remoteTestOwnerID,
 	}}}
-	manager := NewManager(slog.Default(), native, nil, config.WorkspaceConfig{}, "", nil)
+	manager := NewManager(slog.Default(), native, nil, config.WorkspaceConfig{}, config.BrowserConfig{}, "", nil)
 	manager.SetRemoteWorkspaceService(&RemoteWorkspaceService{store: store, runtimes: fakeRuntimeConnections{}})
 
 	status, err := manager.GetContainerInfo(context.Background(), remoteTestBotID)

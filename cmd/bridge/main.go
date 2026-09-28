@@ -26,6 +26,9 @@ const (
 )
 
 func main() {
+	if len(os.Args) >= 3 && os.Args[1] == "browser" && os.Args[2] == "ensure" {
+		os.Exit(runBrowserEnsureSubcommand())
+	}
 	os.Exit(runBridge())
 }
 

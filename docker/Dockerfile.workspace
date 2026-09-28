@@ -50,6 +50,76 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH:-amd64} \
     go build -trimpath -ldflags "-s -w" -o /out/bridge ./cmd/bridge
 
+# antmemo: fork of Ant-Browser (github.com/felinics/ant-browser, vendored as
+# third_party/ant-browser) driving a fingerprint-chromium core, replacing the
+# workspace's old plain Chromium/Chrome install. No fallback: this stage must
+# succeed for the workspace image to build.
+FROM golang:1.25-bookworm AS ant-browser-builder
+ARG TARGETARCH
+RUN apt-get update \
+  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    build-essential \
+    ca-certificates \
+    curl \
+    git \
+    gnupg \
+    libayatana-appindicator3-dev \
+    libgtk-3-dev \
+    pkg-config \
+    python3 \
+    tar \
+  && (apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev \
+      || apt-get install -y --no-install-recommends libwebkit2gtk-4.0-dev) \
+  && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+  && apt-get install -y --no-install-recommends nodejs \
+  && rm -rf /var/lib/apt/lists/*
+RUN go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+WORKDIR /build
+COPY third_party/ant-browser .
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/build/frontend/node_modules \
+    set -eux; \
+    if [ "${TARGETARCH:-amd64}" != "amd64" ]; then \
+      echo "[ERROR] ant-chrome/fingerprint-chromium is amd64-only; refusing to silently build for ${TARGETARCH}" >&2; \
+      exit 1; \
+    fi; \
+    (cd frontend && BROWSERSLIST_IGNORE_OLD_DATA=1 npm ci --prefer-offline --no-audit --no-fund && npm run build:clean); \
+    rm -f build/bin/ant-chrome; \
+    if pkg-config --exists webkit2gtk-4.0; then \
+      WAILS_TAGS=""; \
+    elif pkg-config --exists webkit2gtk-4.1; then \
+      WAILS_TAGS="-tags webkit2_41"; \
+    else \
+      echo "[ERROR] missing WebKitGTK development package: webkit2gtk-4.0 or webkit2gtk-4.1" >&2; \
+      exit 1; \
+    fi; \
+    wails build -s -platform linux/amd64 $WAILS_TAGS -o ant-chrome; \
+    test -x build/bin/ant-chrome; \
+    mkdir -p /out; \
+    cp build/bin/ant-chrome /out/ant-chrome
+
+# fingerprint-chromium (ungoogled-chromium fork, BSD-3-Clause) is the core
+# ant-chrome drives. 148.0.7778.215 only ships a linux/amd64 tarball.
+FROM debian:bookworm-slim AS fingerprint-chromium-fetcher
+ARG TARGETARCH
+ARG FINGERPRINT_CHROMIUM_VERSION=148.0.7778.215
+RUN apt-get update \
+  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    ca-certificates curl xz-utils \
+  && rm -rf /var/lib/apt/lists/*
+RUN set -eux; \
+    if [ "${TARGETARCH:-amd64}" != "amd64" ]; then \
+      echo "[ERROR] fingerprint-chromium ${FINGERPRINT_CHROMIUM_VERSION} has no Linux arm64 release; refusing to silently fall back to another browser" >&2; \
+      exit 1; \
+    fi; \
+    mkdir -p /opt/memoh/toolkit/browser/chrome; \
+    curl -fsSL -o /tmp/fingerprint-chromium.tar.xz \
+      "https://github.com/adryfish/fingerprint-chromium/releases/download/${FINGERPRINT_CHROMIUM_VERSION}/ungoogled-chromium-${FINGERPRINT_CHROMIUM_VERSION}-1-x86_64_linux.tar.xz"; \
+    tar -xJf /tmp/fingerprint-chromium.tar.xz -C /opt/memoh/toolkit/browser/chrome --strip-components=1; \
+    rm -f /tmp/fingerprint-chromium.tar.xz; \
+    test -x /opt/memoh/toolkit/browser/chrome/chrome
+
 FROM debian:bookworm-slim AS workspace
 ARG MEMOH_APT_COMMAND_TIMEOUT=1200
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -62,15 +132,6 @@ COPY scripts/desktop-install.sh /tmp/memoh-desktop-install.sh
 RUN set -eux; \
     progress() { :; }; \
     has_cmd() { command -v "$1" >/dev/null 2>&1; }; \
-    find_browser() { \
-      for candidate in google-chrome-stable google-chrome chromium chromium-browser; do \
-        if has_cmd "$candidate"; then \
-          command -v "$candidate"; \
-          return 0; \
-        fi; \
-      done; \
-      return 1; \
-    }; \
     . /tmp/memoh-desktop-install.sh; \
     export MEMOH_DISPLAY_INSTALL_ASSETS_GLOBAL=1; \
     install_debian; \
@@ -81,6 +142,9 @@ RUN set -eux; \
     chmod 1777 /tmp/.X11-unix
 
 COPY --from=toolkit-builder /opt/memoh/toolkit /opt/memoh/toolkit
+COPY --from=ant-browser-builder /out/ant-chrome /opt/memoh/toolkit/browser/bin/ant-chrome
+COPY --from=fingerprint-chromium-fetcher /opt/memoh/toolkit/browser/chrome /opt/memoh/toolkit/browser/chrome
+RUN chmod 0755 /opt/memoh/toolkit/browser/bin/ant-chrome /opt/memoh/toolkit/browser/chrome/chrome
 COPY scripts/desktop-style.sh scripts/display-apply-style.sh scripts/display-prepare.sh /opt/memoh/scripts/
 RUN printf '%s\n' 'export PATH="/opt/memoh/toolkit/bin:$PATH"' > /etc/profile.d/memoh-toolkit.sh \
   && chmod 0755 /opt/memoh/scripts/*.sh \

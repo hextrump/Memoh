@@ -703,59 +703,15 @@ first_existing_file() {
   return 1
 }
 
-write_chromium_wrapper() {
-  browser="$1"
-  [ -n "$browser" ] || return 1
-
-  wrapper="$HOME/.local/bin/memoh-chromium"
-  mkdir -p "$(dirname "$wrapper")"
-  cat >"$wrapper" <<EOF
-#!/bin/sh
-browser="${browser}"
-profile="\${MEMOH_DISPLAY_CHROMIUM_PROFILE:-/tmp/memoh-display-browser}"
-
-if [ "\$#" -eq 0 ]; then
-  set -- about:blank
-fi
-
-mkdir -p "\$profile"
-if ! ps -ef 2>/dev/null | grep -F -- "--user-data-dir=\$profile" | grep -v grep >/dev/null 2>&1; then
-  rm -f "\$profile"/SingletonLock "\$profile"/SingletonSocket "\$profile"/SingletonCookie
-fi
-
-exec "\$browser" \\
-  --no-sandbox \\
-  --disable-dev-shm-usage \\
-  --disable-gpu \\
-  --no-first-run \\
-  --no-default-browser-check \\
-  --force-renderer-accessibility \\
-  --remote-debugging-address=127.0.0.1 \\
-  --remote-debugging-port=9222 \\
-  --remote-allow-origins='*' \\
-  --user-data-dir="\$profile" \\
-  "\$@"
-EOF
-  chmod 0755 "$wrapper" 2>/dev/null || true
-  printf '%s\n' "$wrapper"
-}
-
 browser_desktop_file() {
-  browser="$(command -v chromium 2>/dev/null || command -v chromium-browser 2>/dev/null || true)"
-  if [ -n "$browser" ]; then
-    wrapper="$(write_chromium_wrapper "$browser" 2>/dev/null || true)"
-    [ -n "$wrapper" ] || wrapper="$browser"
-    file="$HOME/.local/share/applications/memoh-chromium.desktop"
-    write_desktop_file "$file" "Chromium" "chromium" "$wrapper"
+  browser=/opt/memoh/toolkit/browser/bin/ant-chrome
+  if [ -x "$browser" ]; then
+    file="$HOME/.local/share/applications/memoh-browser.desktop"
+    write_desktop_file "$file" "Browser" "web-browser" "$browser"
     printf '%s\n' "$file"
     return 0
   fi
-
-  first_existing_file \
-    /usr/share/applications/chromium.desktop \
-    /usr/share/applications/chromium-browser.desktop \
-    /usr/local/share/applications/chromium.desktop \
-    /usr/local/share/applications/chromium-browser.desktop
+  return 1
 }
 
 terminal_desktop_file() {

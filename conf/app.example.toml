@@ -239,3 +239,23 @@ discovery_cache_ttl_seconds = 600
 # UV_RELEASES_URL = "https://github.com/astral-sh/uv/releases"
 # NPM_MIRROR = "https://registry.npmjs.org"
 # UV_PYTHON_INSTALL_MIRROR = "https://github.com/astral-sh/python-build-standalone/releases/download"
+
+# antmemo: the workspace's built-in browser. This is Ant-Browser
+# (github.com/felinics/ant-browser, vendored as third_party/ant-browser)
+# driving a fingerprint-chromium core; it is the only browser backend the
+# workspace image ships, there is no Chrome/Chromium fallback. Per-bot
+# overrides (fingerprint_platform, fingerprint_seed, extra_fingerprint_args,
+# proxy_mode, proxy_server_url) live in that bot's workspace.browser.*
+# metadata and take precedence over these defaults.
+[browser]
+# Must match the workspace image's ant-chrome Launch API / unified CDP
+# reverse-proxy port (cmd/bridge/browser.go's antBrowserLaunchAPIPort).
+launch_api_port = "19876"
+# Pinned fingerprint-chromium release baked into the workspace image
+# (docker/Dockerfile.workspace's fingerprint-chromium-fetcher stage).
+fingerprint_chromium_version = "148.0.7778.215"
+# --fingerprint-platform value: "windows", "mac", or "linux".
+default_fingerprint_platform = "windows"
+# "direct" or a proxied mode; proxied modes require a per-bot
+# proxy_server_url override to actually take effect.
+default_proxy_mode = "direct"

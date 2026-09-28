@@ -45,7 +45,7 @@ Memoh/
 │   │       ├── memory.go       #       Memory read/write tool
 │   │       ├── web.go          #       Web search tool
 │   │       ├── webfetch.go     #       Web page fetch tool
-│   │       ├── browser.go      #       Browser Use (headed workspace Chrome over CDP)
+│   │       ├── browser.go      #       Browser Use (headed antmemo ant-chrome/fingerprint-chromium over CDP)
 │   │       ├── computer_a11y.go #      Computer Use (AT-SPI accessibility + RFB input)
 │   │       ├── container.go    #       Container file/exec tools
 │   │       ├── fsops.go        #       Filesystem operations tool
@@ -186,7 +186,7 @@ Memoh/
 
 - Each bot can have an isolated **workspace container** for file editing, command execution, MCP tool hosting, and optional headed browser/desktop display sessions.
 - Container workspaces communicate with the host via a **gRPC bridge** over Unix Domain Sockets (UDS), not TCP.
-- The bridge binary (`cmd/bridge/`) runs inside each container as a read-only file mount, with UDS sockets under `/run/memoh/`. Toolkit binaries (node, python, uv), display dependencies, and runtime scripts come from the workspace image; agent CLIs and other managed dependencies are installed per bot into `/data` by the workspace dependency manager (`internal/workspacedeps/`). When display is enabled the bridge can supervise Xvnc and a headed Chrome/Chromium process with CDP on port `9222`; the web UI then exposes a Display pane backed by screenshots/WebRTC/input forwarding. Treat VNC as the container desktop transport, not as the whole browser automation feature.
+- The bridge binary (`cmd/bridge/`) runs inside each container as a read-only file mount, with UDS sockets under `/run/memoh/`. Toolkit binaries (node, python, uv), display dependencies, and runtime scripts come from the workspace image; agent CLIs and other managed dependencies are installed per bot into `/data` by the workspace dependency manager (`internal/workspacedeps/`). When display is enabled the bridge can supervise Xvnc and a headed `ant-chrome` process (antmemo: a fork of Ant-Browser driving a fingerprint-chromium core, vendored as `third_party/ant-browser`; see `docs/ant-browser-fork.md`) with CDP reached through its unified reverse proxy on port `19876`; the web UI then exposes a Display pane backed by screenshots/WebRTC/input forwarding. Treat VNC as the container desktop transport, not as the whole browser automation feature.
 - The canonical workspace image is built from `docker/Dockerfile.workspace`. There is no image-level compatibility check: custom/provider images that expose the same toolkit and script paths (`/opt/memoh/toolkit`, `/opt/memoh/scripts`) get the same base capabilities, and anything missing is reported at the point of use or discovered as an installable dependency.
 - `internal/workspace/` manages workspace lifecycle (create, start, stop, reconcile) and maintains a bridge gRPC connection pool for container runtimes.
 - `internal/container/` provides the container runtime abstraction layer and adapter subpackages (`docker`, `containerd`, `apple`). Snapshot/storage semantics differ by backend; do not assume containerd-style snapshot lineage for Docker or archive-backed flows.

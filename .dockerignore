@@ -32,6 +32,10 @@ target/
 .toolkit/
 /agent
 
+# third_party/ant-browser's build/appicon.png is go:embed'd by its own
+# main.go and must survive the blanket **/build/ exclusion above.
+!third_party/ant-browser/build/appicon.png
+
 # Logs
 *.log
 logs/

@@ -110,12 +110,9 @@ func TestDisplayPrepareCommandUsesImageScripts(t *testing.T) {
 		strings.Contains(cmd, "plugin-109 string actions") {
 		t.Fatal("injected style script must omit the Xfce actions menu with logout and power options")
 	}
-	if !strings.Contains(cmd, `write_chromium_wrapper "$browser"`) ||
-		!strings.Contains(cmd, `write_desktop_file "$file" "Chromium" "chromium" "$wrapper"`) ||
-		!strings.Contains(cmd, `--user-data-dir="\$profile"`) ||
-		!strings.Contains(cmd, `rm -f "\$profile"/SingletonLock`) ||
-		strings.Contains(cmd, `write_desktop_file "$file" "Browser" "web-browser"`) {
-		t.Fatal("injected style script must pin the dock browser launcher to a Chromium wrapper with an isolated profile")
+	if !strings.Contains(cmd, `browser=/opt/memoh/toolkit/browser/bin/ant-chrome`) ||
+		!strings.Contains(cmd, `write_desktop_file "$file" "Browser" "web-browser" "$browser"`) {
+		t.Fatal("injected style script must pin the dock browser launcher to the antmemo ant-chrome binary")
 	}
 	terminalIndex := strings.Index(cmd, `terminal="$(command -v xfce4-terminal`)
 	terminalLauncherIndex := strings.Index(cmd, `write_desktop_file "$file" "Terminal" "utilities-terminal" "$terminal"`)
@@ -197,11 +194,12 @@ func TestDisplayPrepareCommandUsesImageScripts(t *testing.T) {
 	if !strings.Contains(prepareScript, "grep -Eq '(^|/)Xvnc$'") || !strings.Contains(prepareScript, "grep -Fxq ':99'") {
 		t.Fatal("Xvnc process detection must match real Xvnc processes on display :99")
 	}
-	if !strings.Contains(prepareScript, "grep -Eq '(^|/)(google-chrome-stable|google-chrome|chromium|chromium-browser|chrome)$'") {
-		t.Fatal("browser process detection must match real browser argv entries only")
+	if !strings.Contains(prepareScript, "find_browser()") ||
+		!strings.Contains(prepareScript, "-x /opt/memoh/toolkit/browser/bin/ant-chrome") {
+		t.Fatal("browser detection must check for the antmemo ant-chrome binary")
 	}
-	if !strings.Contains(prepareScript, "grep -Eq '^--type=' && continue") {
-		t.Fatal("CDP readiness detection must ignore Chromium child processes")
+	if !strings.Contains(prepareScript, "/opt/memoh/bridge browser ensure") {
+		t.Fatal("display prepare must delegate browser launch and CDP readiness to bridge browser ensure")
 	}
 	if !strings.Contains(prepareScript, "start_desktop_session()") ||
 		!strings.Contains(prepareScript, "stop_fallback_wm") ||
@@ -215,9 +213,6 @@ func TestDisplayPrepareCommandUsesImageScripts(t *testing.T) {
 	}
 	if !strings.Contains(prepareScript, "xsetroot -cursor_name left_ptr") {
 		t.Fatal("display prepare must replace the default X root cursor")
-	}
-	if !strings.Contains(prepareScript, "SingletonLock") {
-		t.Fatal("display prepare must clean stale Chromium profile locks before starting the browser")
 	}
 	if strings.Contains(prepareScript, "rfbunixpath") || strings.Contains(prepareScript, "RFB_SOCKET") {
 		t.Fatal("display prepare should use loopback TCP VNC instead of a bind-mounted Unix RFB socket")
@@ -305,12 +300,9 @@ func TestDisplayApplyStyleCommandUsesImageScripts(t *testing.T) {
 		strings.Contains(cmd, "plugin-109 string actions") {
 		t.Fatal("display style command must omit the Xfce actions menu with logout and power options")
 	}
-	if !strings.Contains(cmd, `write_chromium_wrapper "$browser"`) ||
-		!strings.Contains(cmd, `write_desktop_file "$file" "Chromium" "chromium" "$wrapper"`) ||
-		!strings.Contains(cmd, `--user-data-dir="\$profile"`) ||
-		!strings.Contains(cmd, `rm -f "\$profile"/SingletonLock`) ||
-		strings.Contains(cmd, `write_desktop_file "$file" "Browser" "web-browser"`) {
-		t.Fatal("display style command must pin the dock browser launcher to a Chromium wrapper with an isolated profile")
+	if !strings.Contains(cmd, `browser=/opt/memoh/toolkit/browser/bin/ant-chrome`) ||
+		!strings.Contains(cmd, `write_desktop_file "$file" "Browser" "web-browser" "$browser"`) {
+		t.Fatal("display style command must pin the dock browser launcher to the antmemo ant-chrome binary")
 	}
 	if !strings.Contains(cmd, `write_desktop_file "$file" "Files" "$icon"`) ||
 		!strings.Contains(cmd, "Memoh-WhiteSur-dark") ||

@@ -97,6 +97,7 @@ type Manager struct {
 	service           runtimeService
 	networkController netctl.Controller
 	cfg               config.WorkspaceConfig
+	browser           config.BrowserConfig
 	namespace         string
 	db                *pgxpool.Pool
 	queries           dbstore.Queries
@@ -115,7 +116,7 @@ type Manager struct {
 	bridgeResetFns    []func(botID string) // see OnBridgeReset
 }
 
-func NewManager(log *slog.Logger, service runtimeService, networkController netctl.Controller, cfg config.WorkspaceConfig, namespace string, conn *pgxpool.Pool, queryOverride ...dbstore.Queries) *Manager {
+func NewManager(log *slog.Logger, service runtimeService, networkController netctl.Controller, cfg config.WorkspaceConfig, browser config.BrowserConfig, namespace string, conn *pgxpool.Pool, queryOverride ...dbstore.Queries) *Manager {
 	if namespace == "" {
 		namespace = config.DefaultNamespace
 	}
@@ -129,6 +130,7 @@ func NewManager(log *slog.Logger, service runtimeService, networkController netc
 		service:           service,
 		networkController: networkController,
 		cfg:               cfg,
+		browser:           browser,
 		namespace:         namespace,
 		db:                conn,
 		queries:           queries,
@@ -618,6 +620,13 @@ func (m *Manager) buildWorkspaceContainerSpec(ctx context.Context, botID string,
 			"MEMOH_DISPLAY_RFB_TCP_ADDR=127.0.0.1:5999",
 			"DISPLAY=:99",
 		)
+		provisionJSON, err := m.resolveWorkspaceBrowserProvisionJSON(ctx, botID)
+		if err != nil {
+			return ctr.ContainerSpec{}, err
+		}
+		if provisionJSON != "" {
+			env = append(env, "MEMOH_BROWSER_PROVISION_JSON="+provisionJSON)
+		}
 	}
 	env = append(env, skillEnv...)
 

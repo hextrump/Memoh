@@ -358,7 +358,7 @@ func provideHooksService(log *slog.Logger, provider bridge.Provider) *hookspkg.S
 }
 
 func provideWorkspaceManager(log *slog.Logger, service ctr.Service, networkController netctl.Controller, cfg config.Config, conn *pgxpool.Pool, queries dbstore.Queries, remote *workspace.RemoteWorkspaceService) (*workspace.Manager, error) {
-	mgr := workspace.NewManager(log, service, networkController, cfg.Workspace, cfg.Containerd.Namespace, conn, queries)
+	mgr := workspace.NewManager(log, service, networkController, cfg.Workspace, cfg.Browser, cfg.Containerd.Namespace, conn, queries)
 	mgr.SetRemoteWorkspaceService(remote)
 	tlsOpts, err := workspace.BridgeTLSRuntimeOptionsFromConfig(cfg)
 	if err != nil {

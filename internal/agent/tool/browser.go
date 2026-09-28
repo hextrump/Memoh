@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	browserCDPAddress                   = "127.0.0.1:9222"
+	browserCDPAddress                   = "127.0.0.1:19876"
 	browserCDPBaseURL                   = "http://" + browserCDPAddress
 	browserToolTimeout                  = 45 * time.Second
 	browserStartupTimeout               = 12 * time.Second
@@ -687,61 +687,7 @@ func (p *BrowserProvider) cdpReachable(ctx context.Context, client *bridge.Clien
 }
 
 func (*BrowserProvider) startDesktopBrowser(ctx context.Context, client *bridge.Client) error {
-	const script = `set -eu
-export DISPLAY=:99
-if [ ! -S /tmp/.X11-unix/X99 ]; then
-  echo "workspace desktop X socket is not ready; open or prepare the bot desktop first" >&2
-  exit 2
-fi
-BROWSER=""
-for candidate in google-chrome-stable google-chrome chromium chromium-browser; do
-  if command -v "$candidate" >/dev/null 2>&1; then
-    BROWSER="$(command -v "$candidate")"
-    break
-  fi
-done
-if [ -z "$BROWSER" ]; then
-  echo "Chrome or Chromium is not installed in the workspace desktop" >&2
-  exit 3
-fi
-BROWSER_PIDS=""
-HAS_CDP=0
-for proc_dir in /proc/[0-9]*; do
-  [ -d "$proc_dir" ] || continue
-  pid="${proc_dir#/proc/}"
-  cmdline="$(tr '\000' '\n' <"$proc_dir/cmdline" 2>/dev/null || true)"
-  printf '%s\n' "$cmdline" | grep -Eq '(^|/)(google-chrome-stable|google-chrome|chromium|chromium-browser|chrome)$' || continue
-  BROWSER_PIDS="$BROWSER_PIDS $pid"
-  if ! printf '%s\n' "$cmdline" | grep -Eq '^--type=' && printf '%s\n' "$cmdline" | grep -Fq -- '--remote-debugging-port=9222'; then
-    HAS_CDP=1
-  fi
-done
-if [ "$HAS_CDP" = "1" ]; then
-  exit 0
-fi
-for pid in $BROWSER_PIDS; do
-  kill "$pid" 2>/dev/null || true
-done
-sleep 1
-for pid in $BROWSER_PIDS; do
-  kill -9 "$pid" 2>/dev/null || true
-done
-rm -f /tmp/memoh-display-browser/SingletonLock /tmp/memoh-display-browser/SingletonSocket /tmp/memoh-display-browser/SingletonCookie
-# The desktop's Gtk/Modules=appmenu-gtk-module XSETTING segfaults Chromium.
-UBUNTU_MENUPROXY=0 GTK_A11Y=1 nohup "$BROWSER" \
-  --force-renderer-accessibility \
-  --no-sandbox \
-  --disable-dev-shm-usage \
-  --disable-gpu \
-  --no-first-run \
-  --no-default-browser-check \
-  --remote-debugging-address=127.0.0.1 \
-  --remote-debugging-port=9222 \
-  --remote-allow-origins='*' \
-  --user-data-dir=/tmp/memoh-display-browser \
-  about:blank >/tmp/memoh-browser.log 2>&1 &
-`
-	result, err := client.Exec(ctx, script, "/", 20)
+	result, err := client.Exec(ctx, "/opt/memoh/bridge browser ensure", "/", 20)
 	if err != nil {
 		return err
 	}

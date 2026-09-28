@@ -21,6 +21,7 @@ The main configuration file is `config.toml` (copied from `conf/app.example.toml
 - `[web]` — Web frontend address
 - `[registry]` — Provider registry (`providers_dir` pointing to `conf/providers/`)
 - `[supermarket]` — Supermarket integration (base_url)
+- `[browser]` — antmemo, the workspace's built-in browser: Ant-Browser (vendored as `third_party/ant-browser`) driving a fingerprint-chromium core, replacing the old Chrome/Chromium install with no fallback path. Global defaults for the Launch API port, pinned fingerprint-chromium version, default `--fingerprint-platform`, and default proxy mode; per-bot overrides live in that bot's `workspace.browser.*` metadata (`fingerprint_platform`, `fingerprint_seed`, `extra_fingerprint_args`, `proxy_mode`, `proxy_server_url`) via `internal/workspace/browser_preference.go`
 
 Provider YAML templates in `conf/providers/` define preset configurations for various LLM providers (OpenAI, Anthropic, GitHub Copilot, etc.).
 

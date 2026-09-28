@@ -74,7 +74,7 @@ func TestManagerCurrentWorkspaceTargetID(t *testing.T) {
 			IsPrimary: true,
 		},
 	}}
-	manager := NewManager(slog.Default(), nil, nil, config.WorkspaceConfig{}, "", nil)
+	manager := NewManager(slog.Default(), nil, nil, config.WorkspaceConfig{}, config.BrowserConfig{}, "", nil)
 	manager.SetRemoteWorkspaceService(&RemoteWorkspaceService{store: store})
 
 	tests := []struct {
@@ -131,7 +131,7 @@ func TestManagerWorkspaceTargetOverridePrecedenceAndConcurrentIsolation(t *testi
 		},
 	}}
 	capabilities := []string{userruntime.CapabilityFS, userruntime.CapabilityExec, userruntime.CapabilityHostFS}
-	manager := NewManager(slog.Default(), nil, nil, config.WorkspaceConfig{}, "", nil)
+	manager := NewManager(slog.Default(), nil, nil, config.WorkspaceConfig{}, config.BrowserConfig{}, "", nil)
 	manager.SetRemoteWorkspaceService(&RemoteWorkspaceService{
 		store: store,
 		runtimes: fakeRuntimeConnections{

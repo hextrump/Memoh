@@ -258,21 +258,10 @@ install_debian() {
   fi
   progress 42 installing "Installing VNC, desktop, accessibility, and CJK fonts"
   apt_get install -y --no-install-recommends ca-certificates curl gnupg dbus-x11 x11-xserver-utils xterm xfce4 xfce4-terminal tigervnc-standalone-server fontconfig fonts-dejavu fonts-noto-cjk fonts-noto-color-emoji procps at-spi2-core tini
+  progress 60 installing "Installing ant-chrome runtime libraries"
+  apt_get install -y --no-install-recommends libgtk-3-0 libnss3 libasound2
+  apt_get install -y --no-install-recommends libwebkit2gtk-4.1-0 || apt_get install -y --no-install-recommends libwebkit2gtk-4.0-37
   install_debian_style_extras
-  if ! find_browser >/dev/null 2>&1; then
-    progress 66 browser "Installing browser"
-    if apt_get install -y --no-install-recommends chromium || apt_get install -y --no-install-recommends chromium-browser; then
-      return 0
-    fi
-    arch="$(dpkg --print-architecture)"
-    [ "$arch" = "amd64" ] || return 1
-    install -d -m 0755 /etc/apt/keyrings
-    rm -f /etc/apt/keyrings/google-chrome.gpg
-    curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --batch --yes --dearmor -o /etc/apt/keyrings/google-chrome.gpg
-    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" >/etc/apt/sources.list.d/google-chrome.list
-    apt_get update
-    apt_get install -y --no-install-recommends google-chrome-stable
-  fi
 }
 
 install_alpine() {

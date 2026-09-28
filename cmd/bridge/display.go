@@ -20,26 +20,23 @@ import (
 )
 
 const (
-	displayEnabledEnv     = "MEMOH_DISPLAY_ENABLED"
-	displayRFBTCPAddrEnv  = "MEMOH_DISPLAY_RFB_TCP_ADDR"
-	displayGeometryEnv    = "MEMOH_DISPLAY_GEOMETRY"
-	displayBrowserURLEnv  = "MEMOH_DISPLAY_BROWSER_URL"
-	displayBrowserCDPPort = "9222"
-	displayBrowserProfile = "/tmp/memoh-display-browser"
-	toolkitXvncPath       = "/opt/memoh/toolkit/display/bin/Xvnc"
-	toolkitXkbcompPath    = "/opt/memoh/toolkit/display/bin/xkbcomp"
-	toolkitXsetrootPath   = "/opt/memoh/toolkit/display/bin/xsetroot"
-	toolkitTwmPath        = "/opt/memoh/toolkit/display/bin/twm"
-	toolkitXtermPath      = "/opt/memoh/toolkit/display/bin/xterm"
-	systemXkbcompPath     = "/usr/bin/xkbcomp"
-	x11SocketDir          = "/tmp/.X11-unix"
-	xvncDisplay           = ":99"
-	defaultXvncGeometry   = "1280x960"
-	xvncSocketPath        = x11SocketDir + "/X99"
-	xvncLockPath          = "/tmp/.X99-lock"
-	desktopStylePath      = "/opt/memoh/scripts/desktop-style.sh"
-	defaultRFBTCPAddr     = "127.0.0.1:5999"
-	displayReadyTimeout   = 30 * time.Second
+	displayEnabledEnv    = "MEMOH_DISPLAY_ENABLED"
+	displayRFBTCPAddrEnv = "MEMOH_DISPLAY_RFB_TCP_ADDR"
+	displayGeometryEnv   = "MEMOH_DISPLAY_GEOMETRY"
+	toolkitXvncPath      = "/opt/memoh/toolkit/display/bin/Xvnc"
+	toolkitXkbcompPath   = "/opt/memoh/toolkit/display/bin/xkbcomp"
+	toolkitXsetrootPath  = "/opt/memoh/toolkit/display/bin/xsetroot"
+	toolkitTwmPath       = "/opt/memoh/toolkit/display/bin/twm"
+	toolkitXtermPath     = "/opt/memoh/toolkit/display/bin/xterm"
+	systemXkbcompPath    = "/usr/bin/xkbcomp"
+	x11SocketDir         = "/tmp/.X11-unix"
+	xvncDisplay          = ":99"
+	defaultXvncGeometry  = "1280x960"
+	xvncSocketPath       = x11SocketDir + "/X99"
+	xvncLockPath         = "/tmp/.X99-lock"
+	desktopStylePath     = "/opt/memoh/scripts/desktop-style.sh"
+	defaultRFBTCPAddr    = "127.0.0.1:5999"
+	displayReadyTimeout  = 30 * time.Second
 )
 
 var desktopSessionMonitorOnce sync.Once
@@ -339,7 +336,9 @@ func startDisplaySession(ctx context.Context) {
 	})
 	startDesktopStyle(ctx)
 	startDisplayTerminal(ctx)
-	startDisplayBrowser(ctx)
+	if err := startWorkspaceBrowser(ctx); err != nil {
+		logger.FromContext(ctx).Warn("failed to start workspace browser", slog.Any("error", err))
+	}
 }
 
 func waitForDisplaySocket(ctx context.Context, timeout time.Duration) error {
@@ -528,41 +527,6 @@ func startDisplayTerminal(ctx context.Context) {
 	)
 }
 
-func startDisplayBrowser(ctx context.Context) {
-	if browserProcessRunning(true) {
-		return
-	}
-	browser := resolveDisplayCommand("google-chrome-stable", "google-chrome", "chromium", "chromium-browser")
-	if browser == "" {
-		logger.FromContext(ctx).Warn("display browser unavailable")
-		return
-	}
-	if browserProcessRunning(false) {
-		stopBrowserProcesses(ctx)
-		_ = sleepWithContext(ctx, time.Second)
-	}
-	cleanupBrowserProfile(ctx)
-	url := strings.TrimSpace(os.Getenv(displayBrowserURLEnv))
-	if url == "" {
-		url = "about:blank"
-	}
-	// The desktop style broadcasts Gtk/Modules=appmenu-gtk-module over
-	// XSETTINGS; that module segfaults Chromium on start, so opt the browser out.
-	startDisplayCommandWithEnv(ctx, "browser", []string{"UBUNTU_MENUPROXY=0"}, browser,
-		"--no-sandbox",
-		"--disable-dev-shm-usage",
-		"--disable-gpu",
-		"--no-first-run",
-		"--no-default-browser-check",
-		"--force-renderer-accessibility",
-		"--remote-debugging-address=127.0.0.1",
-		"--remote-debugging-port="+displayBrowserCDPPort,
-		"--remote-allow-origins=*",
-		"--user-data-dir="+displayBrowserProfile,
-		url,
-	)
-}
-
 func startDesktopStyle(ctx context.Context) {
 	info, err := os.Stat(desktopStylePath)
 	if err != nil || info.IsDir() {
@@ -643,81 +607,6 @@ func stopDisplayProcesses(ctx context.Context, names ...string) {
 
 func xvncProcessRunning() bool {
 	return len(xvncProcessIDs()) > 0
-}
-
-func browserProcessRunning(requireCDP bool) bool {
-	return len(browserProcessIDs(requireCDP)) > 0
-}
-
-func browserProcessIDs(requireCDP bool) []int {
-	entries, err := os.ReadDir("/proc")
-	if err != nil {
-		return nil
-	}
-	var pids []int
-	for _, entry := range entries {
-		name := entry.Name()
-		if name == "" || name[0] < '0' || name[0] > '9' {
-			continue
-		}
-		cmdline, err := os.ReadFile(filepath.Join("/proc", name, "cmdline")) //nolint:gosec // /proc entries are kernel-provided.
-		if err != nil || len(cmdline) == 0 {
-			continue
-		}
-		pid, err := strconv.Atoi(name)
-		if err != nil {
-			continue
-		}
-		parts := strings.Split(strings.TrimRight(string(cmdline), "\x00"), "\x00")
-		hasBrowser := false
-		hasCDP := false
-		hasProcessType := false
-		for _, arg := range parts {
-			if isBrowserArg(arg) {
-				hasBrowser = true
-			}
-			if arg == "--remote-debugging-port="+displayBrowserCDPPort {
-				hasCDP = true
-			}
-			if strings.HasPrefix(arg, "--type=") {
-				hasProcessType = true
-			}
-		}
-		if hasBrowser && (!requireCDP || (hasCDP && !hasProcessType)) {
-			pids = append(pids, pid)
-		}
-	}
-	return pids
-}
-
-func isBrowserArg(arg string) bool {
-	switch filepath.Base(strings.TrimSpace(arg)) {
-	case "google-chrome-stable", "google-chrome", "chromium", "chromium-browser", "chrome":
-		return true
-	default:
-		return false
-	}
-}
-
-func stopBrowserProcesses(_ context.Context) {
-	for _, pid := range browserProcessIDs(false) {
-		process, err := os.FindProcess(pid)
-		if err == nil {
-			_ = process.Kill()
-		}
-	}
-}
-
-func cleanupBrowserProfile(ctx context.Context) {
-	if browserProcessRunning(false) {
-		return
-	}
-	for _, name := range []string{"SingletonLock", "SingletonSocket", "SingletonCookie"} {
-		path := filepath.Join(displayBrowserProfile, name)
-		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-			logger.FromContext(ctx).Warn("failed to remove stale browser profile lock", slog.String("path", path), slog.Any("error", err))
-		}
-	}
 }
 
 func xvncProcessIDs() []int {
