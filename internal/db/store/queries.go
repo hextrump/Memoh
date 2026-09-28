@@ -386,6 +386,7 @@ type Queries interface {
 	ListMessagesBySession(ctx context.Context, sessionID pgtype.UUID) ([]dbsqlc.ListMessagesBySessionRow, error)
 	ListSubagentForkContext(ctx context.Context, sessionID pgtype.UUID) ([]dbsqlc.ListSubagentForkContextRow, error)
 	ListMessagesLatest(ctx context.Context, arg dbsqlc.ListMessagesLatestParams) ([]dbsqlc.ListMessagesLatestRow, error)
+	ListBotLastMessages(ctx context.Context, botIds []pgtype.UUID) ([]dbsqlc.ListBotLastMessagesRow, error)
 	ListMessagesLatestBySession(ctx context.Context, arg dbsqlc.ListMessagesLatestBySessionParams) ([]dbsqlc.ListMessagesLatestBySessionRow, error)
 	ListMessagesLatestUIBySession(ctx context.Context, arg dbsqlc.ListMessagesLatestUIBySessionParams) ([]dbsqlc.ListMessagesLatestUIBySessionRow, error)
 	ListMessagesSince(ctx context.Context, arg dbsqlc.ListMessagesSinceParams) ([]dbsqlc.ListMessagesSinceRow, error)

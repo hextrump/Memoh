@@ -3262,3 +3262,23 @@ WHERE message.team_id = public.memoh_current_team_id()
   AND btrim(COALESCE(message.metadata->>'agent_turn_id', '')) <> ''
 ORDER BY message.created_at DESC, message.id DESC
 LIMIT 1;
+
+-- name: ListBotLastMessages :many
+-- Latest user/assistant message with visible text per bot, for the messenger-style bot list.
+SELECT DISTINCT ON (m.bot_id)
+  m.bot_id,
+  m.session_id,
+  m.role,
+  m.content,
+  m.display_text,
+  m.created_at
+FROM bot_visible_history_messages m
+WHERE m.team_id = public.memoh_current_team_id()
+  AND m.bot_id = ANY(sqlc.arg(bot_ids)::uuid[])
+  AND m.role IN ('user', 'assistant')
+  AND (
+    COALESCE(m.display_text, '') <> ''
+    OR jsonb_typeof(m.content->'content') = 'string'
+    OR jsonb_path_exists(m.content, '$.content[*] ? (@.type == "text")')
+  )
+ORDER BY m.bot_id, m.created_at DESC, m.id DESC;

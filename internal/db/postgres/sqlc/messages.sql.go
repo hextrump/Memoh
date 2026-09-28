@@ -3281,6 +3281,63 @@ func (q *Queries) ListAllMessagesForBackup(ctx context.Context, botID pgtype.UUI
 	return items, nil
 }
 
+const listBotLastMessages = `-- name: ListBotLastMessages :many
+SELECT DISTINCT ON (m.bot_id)
+  m.bot_id,
+  m.session_id,
+  m.role,
+  m.content,
+  m.display_text,
+  m.created_at
+FROM bot_visible_history_messages m
+WHERE m.team_id = public.memoh_current_team_id()
+  AND m.bot_id = ANY($1::uuid[])
+  AND m.role IN ('user', 'assistant')
+  AND (
+    COALESCE(m.display_text, '') <> ''
+    OR jsonb_typeof(m.content->'content') = 'string'
+    OR jsonb_path_exists(m.content, '$.content[*] ? (@.type == "text")')
+  )
+ORDER BY m.bot_id, m.created_at DESC, m.id DESC
+`
+
+type ListBotLastMessagesRow struct {
+	BotID       pgtype.UUID        `json:"bot_id"`
+	SessionID   pgtype.UUID        `json:"session_id"`
+	Role        string             `json:"role"`
+	Content     []byte             `json:"content"`
+	DisplayText pgtype.Text        `json:"display_text"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+// Latest user/assistant message with visible text per bot, for the messenger-style bot list.
+func (q *Queries) ListBotLastMessages(ctx context.Context, botIds []pgtype.UUID) ([]ListBotLastMessagesRow, error) {
+	rows, err := q.db.Query(ctx, listBotLastMessages, botIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListBotLastMessagesRow
+	for rows.Next() {
+		var i ListBotLastMessagesRow
+		if err := rows.Scan(
+			&i.BotID,
+			&i.SessionID,
+			&i.Role,
+			&i.Content,
+			&i.DisplayText,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listHistoryTurnsByBot = `-- name: ListHistoryTurnsByBot :many
 SELECT
   m.turn_id AS id,

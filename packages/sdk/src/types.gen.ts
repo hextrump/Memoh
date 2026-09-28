@@ -741,6 +741,14 @@ export type BotsBot = {
     updated_at?: string;
 };
 
+export type BotsBotActivity = {
+    bot_id?: string;
+    last_activity_at?: string;
+    preview_text?: string;
+    role?: string;
+    session_id?: string;
+};
+
 export type BotsBotCheck = {
     detail?: string;
     id?: string;
@@ -771,6 +779,10 @@ export type BotsCreateUserGrantRequest = {
     permissions?: Array<string>;
     subject_type?: string;
     user_id?: string;
+};
+
+export type BotsListBotActivityResponse = {
+    items?: Array<BotsBotActivity>;
 };
 
 export type BotsListBotsResponse = {
@@ -4751,6 +4763,35 @@ export type PostBotsResponses = {
 };
 
 export type PostBotsResponse = PostBotsResponses[keyof PostBotsResponses];
+
+export type GetBotsActivityData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/bots/activity';
+};
+
+export type GetBotsActivityErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type GetBotsActivityError = GetBotsActivityErrors[keyof GetBotsActivityErrors];
+
+export type GetBotsActivityResponses = {
+    /**
+     * OK
+     */
+    200: BotsListBotActivityResponse;
+};
+
+export type GetBotsActivityResponse = GetBotsActivityResponses[keyof GetBotsActivityResponses];
 
 export type PostBotsBackupImportData = {
     body: {

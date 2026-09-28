@@ -457,6 +457,35 @@ const docTemplate = `{
                 }
             }
         },
+        "/bots/activity": {
+            "get": {
+                "description": "Latest visible message per accessible bot, most recent first, for the messenger-style bot list",
+                "tags": [
+                    "bots"
+                ],
+                "summary": "List bot activity",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/bots.ListBotActivityResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bots/backup/import": {
             "post": {
                 "consumes": [
@@ -19449,6 +19478,26 @@ const docTemplate = `{
                 }
             }
         },
+        "bots.BotActivity": {
+            "type": "object",
+            "properties": {
+                "bot_id": {
+                    "type": "string"
+                },
+                "last_activity_at": {
+                    "type": "string"
+                },
+                "preview_text": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "session_id": {
+                    "type": "string"
+                }
+            }
+        },
         "bots.BotCheck": {
             "type": "object",
             "properties": {
@@ -19523,6 +19572,17 @@ const docTemplate = `{
                 },
                 "user_id": {
                     "type": "string"
+                }
+            }
+        },
+        "bots.ListBotActivityResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/bots.BotActivity"
+                    }
                 }
             }
         },

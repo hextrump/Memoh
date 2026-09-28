@@ -99,6 +99,7 @@ func (h *UsersHandler) Register(e *echo.Echo) {
 	botGroup.POST("", h.CreateBot)
 	botGroup.GET("", h.ListBots)
 	botGroup.GET("/name-availability", h.CheckBotName)
+	botGroup.GET("/activity", h.ListBotActivity)
 	botGroup.GET("/:id", h.GetBot)
 	botGroup.GET("/:id/checks", h.ListBotChecks)
 	botGroup.PUT("/:id", h.UpdateBot)
