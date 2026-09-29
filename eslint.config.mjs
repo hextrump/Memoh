@@ -8,7 +8,8 @@ export default [
   ...vue.configs['flat/recommended'],
   // internal/**/protocolref holds vendored protocol reference snapshots
   // (pinned verbatim; a freshness test diffs them against upstream).
-  { ignores: ['**/node_modules/**', '**/dist/**', '**/out/**', '**/cache/**', '**/target/**', '**/.toolkit/**', 'packages/sdk/src/**', 'internal/**/protocolref/**'] },
+  // third_party/** holds vendored source from other projects (own lint config, own conventions).
+  { ignores: ['**/node_modules/**', '**/dist/**', '**/out/**', '**/cache/**', '**/target/**', '**/.toolkit/**', 'packages/sdk/src/**', 'internal/**/protocolref/**', 'third_party/**'] },
   {
     files: ['packages/**/*.{js,jsx,ts,tsx}', 'apps/**/*.{js,jsx,ts,tsx}'],
     languageOptions: {
