@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -91,6 +93,7 @@ func startWorkspaceBrowser(ctx context.Context) error {
 	if err := os.MkdirAll(antChromeProfileDir, 0o750); err != nil {
 		return fmt.Errorf("create ant-chrome profile dir: %w", err)
 	}
+	clearStaleProfileLock(ctx, antChromeProfileDir)
 	if !displayProcessRunning(ctx, antChromeProcessName) {
 		startDisplayCommandWithEnv(ctx, antChromeProcessName, []string{"UBUNTU_MENUPROXY=0"}, binPath)
 	}
@@ -190,6 +193,32 @@ func defaultBrowserProvisionRequest() *browserProvisionRequest {
 		ForceRecreate: false,
 		TimeoutMs:     int(antBrowserProvisionWait / time.Millisecond),
 	}
+}
+
+// clearStaleProfileLock removes Chromium's Singleton* files when the
+// SingletonLock ("<hostname>-<pid>") belongs to a previous workspace container
+// or a dead process. The profile lives in /data, which outlives the container,
+// so after a restart Chromium would otherwise refuse the profile as "in use by
+// another computer".
+func clearStaleProfileLock(ctx context.Context, dir string) {
+	target, err := os.Readlink(filepath.Join(dir, "SingletonLock"))
+	if err != nil {
+		return
+	}
+	i := strings.LastIndexByte(target, '-')
+	if i > 0 {
+		host, _ := os.Hostname()
+		pid, err := strconv.Atoi(target[i+1:])
+		if err == nil && target[:i] == host {
+			if _, err := os.Stat(fmt.Sprintf("/proc/%d", pid)); err == nil {
+				return
+			}
+		}
+	}
+	for _, name := range []string{"SingletonLock", "SingletonSocket", "SingletonCookie"} {
+		_ = os.Remove(filepath.Join(dir, name))
+	}
+	logger.FromContext(ctx).Info("removed stale browser profile lock", slog.String("lock", target))
 }
 
 // runBrowserEnsureCommand implements the `bridge browser ensure` one-shot
