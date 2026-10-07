@@ -41,3 +41,14 @@ func TestProvisionOverrideKeepsTemplate(t *testing.T) {
 		t.Fatalf("template clobbered: %v / %v", req.FingerprintArgs, browserFingerprintTemplate)
 	}
 }
+
+func TestProvisionIgnoresLegacyWindowsDefault(t *testing.T) {
+	t.Setenv(antBrowserProvisionJSON, legacyDefaultBrowserProvisionJSON)
+	req, err := browserProvisionRequestWithOverrides()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(req.FingerprintArgs, " "); got != strings.Join(browserFingerprintTemplate, " ") {
+		t.Fatalf("legacy default should keep the template, got %q", got)
+	}
+}

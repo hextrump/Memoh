@@ -144,10 +144,15 @@ func waitAntBrowserLaunchAPI(ctx context.Context, timeout time.Duration) error {
 
 // browserProvisionRequestWithOverrides applies the server's per-bot
 // MEMOH_BROWSER_PROVISION_JSON to the default request.
+const legacyDefaultBrowserProvisionJSON = `{"fingerprintArgs":["--fingerprint-platform=windows"]}`
+
 func browserProvisionRequestWithOverrides() (*browserProvisionRequest, error) {
 	req := defaultBrowserProvisionRequest()
 	raw := strings.TrimSpace(os.Getenv(antBrowserProvisionJSON))
-	if raw == "" {
+	// Servers before the Japanese template sent this whenever nothing was
+	// configured, and a workspace container keeps the env it was created with,
+	// so treat it as no override rather than pinning old workspaces to Windows.
+	if raw == "" || raw == legacyDefaultBrowserProvisionJSON {
 		return req, nil
 	}
 	// Unmarshal would reuse the template's backing array; start from nil.
