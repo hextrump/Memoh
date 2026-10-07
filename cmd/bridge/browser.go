@@ -95,7 +95,9 @@ func startWorkspaceBrowser(ctx context.Context) error {
 	}
 	clearStaleProfileLock(ctx, antChromeProfileDir)
 	if !displayProcessRunning(ctx, antChromeProcessName) {
-		startDisplayCommandWithEnv(ctx, antChromeProcessName, []string{"UBUNTU_MENUPROXY=0", "ANT_BROWSER_HIDE_WINDOW=1"}, binPath)
+		// Detached from ctx: `bridge browser ensure` exits right after provisioning,
+		// and cancelling its ctx would kill the manager it just started.
+		startDisplayCommandWithEnv(context.WithoutCancel(ctx), antChromeProcessName, []string{"UBUNTU_MENUPROXY=0", "ANT_BROWSER_HIDE_WINDOW=1"}, binPath)
 	}
 	if err := waitAntBrowserLaunchAPI(ctx, antBrowserLaunchAPIWait); err != nil {
 		return err
