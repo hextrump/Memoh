@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -1895,7 +1896,40 @@ func (p *cdpPage) navigate(ctx context.Context, targetURL string, timeoutMS int)
 		return nil, fmt.Errorf("verify browser navigation URL: %w", err)
 	}
 	nav["url"] = currentURL
+	if hint := p.blockedPageHint(ctx); hint != "" {
+		nav["hint"] = hint
+	}
 	return nav, nil
+}
+
+const blockedPageProbe = `JSON.stringify({status: (performance.getEntriesByType("navigation")[0] || {}).responseStatus || 0, title: document.title, text: document.body ? document.body.innerText.slice(0, 1000) : ""})`
+
+var blockedPagePattern = regexp.MustCompile(`(?i)access denied|forbidden|blocked|banned|captcha|are you (a )?(human|robot)|verify (that )?you are (a )?human|unusual traffic|automated (queries|requests|access|bot)|bot detected|attention required|just a moment|访问被拒绝|拒绝访问|人机验证|アクセスが拒否`)
+
+// blockedPageHint is best-effort: anti-bot pages rarely say so in a way the
+// model connects to new_instance, so spell it out right where it is decided.
+func (p *cdpPage) blockedPageHint(ctx context.Context) string {
+	raw, err := p.evaluateString(ctx, blockedPageProbe)
+	if err != nil {
+		return ""
+	}
+	var page struct {
+		Status int    `json:"status"`
+		Title  string `json:"title"`
+		Text   string `json:"text"`
+	}
+	if json.Unmarshal([]byte(raw), &page) != nil || !looksBlocked(page.Status, page.Title, page.Text) {
+		return ""
+	}
+	return "This page looks like the site is blocking this browser. If it is, call browser_action new_instance (fresh browser and fingerprint, drops cookies and logins) and then open the URL again instead of switching to other tools."
+}
+
+func looksBlocked(status int, title, text string) bool {
+	if status == http.StatusForbidden || status == http.StatusTooManyRequests {
+		return true
+	}
+	// Only short pages: a long article that merely mentions "blocked" is real content.
+	return blockedPagePattern.MatchString(title) || (len([]rune(text)) < 600 && blockedPagePattern.MatchString(text))
 }
 
 func (p *cdpPage) waitReady(ctx context.Context, timeoutMS int) error {

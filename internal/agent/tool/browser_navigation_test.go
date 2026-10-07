@@ -90,3 +90,23 @@ func TestBrowserNavigationOutcome(t *testing.T) {
 		})
 	}
 }
+
+func TestLooksBlocked(t *testing.T) {
+	for _, tc := range []struct {
+		status      int
+		title, text string
+		want        bool
+	}{
+		{200, "Example Domain", "This domain is for use in documentation examples.", false},
+		{403, "", "", true},
+		{429, "Too Many Requests", "", true},
+		{200, "Just a moment...", "Checking your browser", true},
+		{200, "Shop", "Access denied. Your browser has been identified as an automated bot.", true},
+		{200, "News", "Court ruling: the merger was blocked by regulators. " + strings.Repeat("Long article text. ", 60), false},
+		{404, "Not Found", "The page does not exist.", false},
+	} {
+		if got := looksBlocked(tc.status, tc.title, tc.text); got != tc.want {
+			t.Errorf("looksBlocked(%d, %q, %.30q) = %v, want %v", tc.status, tc.title, tc.text, got, tc.want)
+		}
+	}
+}
