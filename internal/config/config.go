@@ -58,7 +58,7 @@ const (
 	DefaultBrowserLaunchAPIPort              = "19876"
 	DefaultBrowserFingerprintChromiumVersion = "148.0.7778.215"
 	DefaultBrowserProxyMode                  = "direct"
-	DefaultBrowserFingerprintPlatform        = "windows"
+	DefaultBrowserFingerprintPlatform        = "macos"
 
 	ImagePullPolicyIfNotPresent = "if_not_present"
 	ImagePullPolicyAlways       = "always"

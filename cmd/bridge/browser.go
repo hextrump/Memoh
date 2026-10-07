@@ -111,7 +111,7 @@ func startWorkspaceBrowser(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("open ant-chrome log: %w", err)
 		}
-		startDisplayCommandWithOutput(context.WithoutCancel(ctx), antChromeProcessName, []string{"UBUNTU_MENUPROXY=0", "ANT_BROWSER_HIDE_WINDOW=1", "XRAY_BINARY_PATH=" + antChromeXrayPath}, out, binPath)
+		startDisplayCommandWithOutput(context.WithoutCancel(ctx), antChromeProcessName, []string{"UBUNTU_MENUPROXY=0", "ANT_BROWSER_HIDE_WINDOW=1", "XRAY_BINARY_PATH=" + antChromeXrayPath, antChromeLocaleEnv}, out, binPath)
 		_ = out.Close()
 	}
 	if err := waitAntBrowserLaunchAPI(ctx, antBrowserLaunchAPIWait); err != nil {
@@ -142,12 +142,28 @@ func waitAntBrowserLaunchAPI(ctx context.Context, timeout time.Duration) error {
 	}
 }
 
-func provisionAntBrowser(ctx context.Context) error {
+// browserProvisionRequestWithOverrides applies the server's per-bot
+// MEMOH_BROWSER_PROVISION_JSON to the default request.
+func browserProvisionRequestWithOverrides() (*browserProvisionRequest, error) {
 	req := defaultBrowserProvisionRequest()
-	if raw := strings.TrimSpace(os.Getenv(antBrowserProvisionJSON)); raw != "" {
-		if err := json.Unmarshal([]byte(raw), req); err != nil {
-			return fmt.Errorf("parse %s: %w", antBrowserProvisionJSON, err)
-		}
+	raw := strings.TrimSpace(os.Getenv(antBrowserProvisionJSON))
+	if raw == "" {
+		return req, nil
+	}
+	// Unmarshal would reuse the template's backing array; start from nil.
+	template := req.FingerprintArgs
+	req.FingerprintArgs = nil
+	if err := json.Unmarshal([]byte(raw), req); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", antBrowserProvisionJSON, err)
+	}
+	req.FingerprintArgs = mergeFingerprintArgs(template, req.FingerprintArgs)
+	return req, nil
+}
+
+func provisionAntBrowser(ctx context.Context) error {
+	req, err := browserProvisionRequestWithOverrides()
+	if err != nil {
+		return err
 	}
 	body, err := json.Marshal(req)
 	if err != nil {
@@ -201,12 +217,18 @@ func defaultBrowserProvisionRequest() *browserProvisionRequest {
 		CorePath:           antChromeCoreDir,
 		UserDataDir:        dir,
 		RestoreLastSession: "off",
+		FingerprintArgs:    append([]string(nil), browserFingerprintTemplate...),
 		// The workspace container always runs fingerprint-chromium as root,
 		// which it refuses to do without --no-sandbox. Workspace containers
 		// don't get an enlarged /dev/shm, so also fall back to /tmp for
 		// shared memory rather than crashing on the default 64MB tmpfs. The
 		// window fills the desktop and --test-type drops the --no-sandbox infobar.
-		LaunchArgs:    []string{"--no-sandbox", "--disable-dev-shm-usage", "--start-maximized", "--test-type", "--hide-crash-restore-bubble"},
+		// There is no GPU, so WebGL runs on SwiftShader; without it WebGL is
+		// missing altogether, which no real Mac does.
+		LaunchArgs: []string{
+			"--no-sandbox", "--disable-dev-shm-usage", "--start-maximized", "--test-type", "--hide-crash-restore-bubble",
+			"--use-angle=swiftshader", "--enable-unsafe-swiftshader",
+		},
 		ProxyConfig:   currentBrowserProxy(),
 		StartURL:      startURL,
 		Autostart:     true,
@@ -417,6 +439,68 @@ func killProfileProcesses(ctx context.Context, dir string) {
 // currentBrowserProxy returns the proxy set by `bridge browser proxy`, or
 // direct. Authenticated http/socks5 and vmess/ss/... go through Ant-Browser's
 // xray bridge, since Chromium's --proxy-server cannot carry credentials.
+// browserFingerprintTemplate is Ant Browser's Japanese user template
+// ("macOS / Chrome / 日本用户" preset with the "日本 macOS Chrome 轻办公" persona's
+// OS version). The seed is left out so Ant Browser derives it from the profile
+// ID and every new instance still gets its own fingerprint; the window size is
+// left to --start-maximized so it matches the desktop.
+var browserFingerprintTemplate = []string{
+	"--fingerprint-brand=Chrome",
+	"--fingerprint-platform=macos",
+	"--fingerprint-platform-version=15.2.0",
+	"--lang=ja-JP",
+	"--accept-lang=ja-JP,ja",
+	"--timezone=Asia/Tokyo",
+	"--fingerprint-hardware-concurrency=8",
+	"--disable-non-proxied-udp",
+	"--fingerprinting-canvas-image-data-noise",
+	"--fingerprinting-client-rects-noise",
+}
+
+// mergeFingerprintArgs applies the server's per-bot fingerprint overrides on
+// top of the template: an override takes the place of the template arg with
+// the same flag, anything else is appended. A platform other than the
+// template's also drops the template's macOS version.
+func mergeFingerprintArgs(template, overrides []string) []string {
+	flag := func(arg string) string {
+		name, _, _ := strings.Cut(strings.TrimSpace(arg), "=")
+		return name
+	}
+	byFlag := map[string]string{}
+	for _, arg := range overrides {
+		byFlag[flag(arg)] = arg
+	}
+	if platform, ok := byFlag["--fingerprint-platform"]; ok && !strings.Contains(strings.ToLower(platform), "=mac") {
+		if _, ok := byFlag["--fingerprint-platform-version"]; !ok {
+			byFlag["--fingerprint-platform-version"] = ""
+		}
+	}
+	out := make([]string, 0, len(template)+len(overrides))
+	used := map[string]bool{}
+	for _, arg := range template {
+		override, ok := byFlag[flag(arg)]
+		switch {
+		case !ok:
+			out = append(out, arg)
+		case override != "":
+			out = append(out, override)
+		}
+		used[flag(arg)] = true
+	}
+	for _, arg := range overrides {
+		if !used[flag(arg)] {
+			out = append(out, arg)
+			used[flag(arg)] = true
+		}
+	}
+	return out
+}
+
+// antChromeLocaleEnv gives Chromium (which inherits ant-chrome's environment)
+// the template's Japanese locale: on Linux the UI and Intl locale come from
+// LANGUAGE, not --lang.
+const antChromeLocaleEnv = "LANGUAGE=ja_JP:ja"
+
 func currentBrowserProxy() string {
 	raw, err := os.ReadFile(antChromeProxyFile)
 	if v := strings.TrimSpace(string(raw)); err == nil && v != "" {

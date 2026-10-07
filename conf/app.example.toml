@@ -254,8 +254,10 @@ launch_api_port = "19876"
 # Pinned fingerprint-chromium release baked into the workspace image
 # (docker/Dockerfile.workspace's fingerprint-chromium-fetcher stage).
 fingerprint_chromium_version = "148.0.7778.215"
-# --fingerprint-platform value: "windows", "mac", or "linux".
-default_fingerprint_platform = "windows"
+# --fingerprint-platform value: "macos", "windows", or "linux". The rest of
+# the default fingerprint is Ant Browser's Japanese user template
+# (ja-JP, Asia/Tokyo; cmd/bridge/browser.go's browserFingerprintTemplate).
+default_fingerprint_platform = "macos"
 # "direct" or a proxied mode; proxied modes require a per-bot
 # proxy_server_url override to actually take effect.
 default_proxy_mode = "direct"
