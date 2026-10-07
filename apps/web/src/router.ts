@@ -6,6 +6,7 @@ import { useUserStore } from '@/store/user'
 import { ensureOnboarding } from '@/router-guards/onboarding'
 import { installBackHistory } from '@/composables/useBackOr'
 import { createAppRoutes } from './routes'
+import { ssoLoginUrl, ssoRedirect } from '@/lib/sso'
 
 
 const router = createRouter({
@@ -43,12 +44,21 @@ router.beforeEach(async (to) => {
   const token = localStorage.getItem('token')
 
   if (to.fullPath === '/login') {
-    return token ? { path: '/' } : true
+    if (token) return { path: '/' }
+    if (ssoLoginUrl) {
+      ssoRedirect(ssoLoginUrl)
+      return false
+    }
+    return true
   }
   if (to.path.startsWith('/oauth/')) {
     return true
   }
   if (!token) {
+    if (ssoLoginUrl) {
+      ssoRedirect(ssoLoginUrl)
+      return false
+    }
     return { name: 'Login' }
   }
   if (to.meta.adminOnly) {

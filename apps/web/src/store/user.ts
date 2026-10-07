@@ -10,6 +10,7 @@ import { resetOnboardingState } from '@/composables/useOnboarding'
 import { ONBOARDING_KEYS } from '@/pages/onboarding/constants'
 import { resetOnboardingSession } from '@/pages/onboarding/session'
 import { safeLocalRemove } from '@/utils/safe-storage'
+import { ssoLogoutUrl, ssoRedirect } from '@/lib/sso'
 
 export interface UserInfo {
   id: string;
@@ -127,6 +128,7 @@ export const useUserStore = defineStore(
     }
 
     const exitLogin = () => {
+      ssoRedirect(ssoLogoutUrl)
       clearFrontendSessionState('logout')
       localToken.value = ''
       resetOnboarding()

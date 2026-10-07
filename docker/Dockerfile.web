@@ -21,8 +21,12 @@ RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     pnpm install
 
 ARG VITE_API_URL=/api
+ARG VITE_SSO_LOGIN_URL=
+ARG VITE_SSO_LOGOUT_URL=
 
-ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL \
+    VITE_SSO_LOGIN_URL=$VITE_SSO_LOGIN_URL \
+    VITE_SSO_LOGOUT_URL=$VITE_SSO_LOGOUT_URL
 
 WORKDIR /build/apps/web
 RUN pnpm build
