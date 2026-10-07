@@ -27,11 +27,16 @@ import (
 // reverse proxy, so Memoh always dials a single fixed port regardless of
 // which real debug port the underlying fingerprint-chromium process picked.
 const (
-	antChromeToolkitPath    = "/opt/memoh/toolkit/browser/bin/ant-chrome"
-	antChromeCoreDir        = "/opt/memoh/toolkit/browser/chrome"
-	antChromeCoreName       = "fingerprint-chromium"
-	antChromeProfileDir     = "/data/.memoh/browser-profile"
-	antChromeProfileName    = "memoh-workspace"
+	antChromeToolkitPath = "/opt/memoh/toolkit/browser/bin/ant-chrome"
+	antChromeCoreDir     = "/opt/memoh/toolkit/browser/chrome"
+	antChromeCoreName    = "fingerprint-chromium"
+	antChromeProfileDir  = "/data/.memoh/browser-profile"
+	antChromeProfileName = "memoh-workspace"
+	// `bridge browser new` rotates to a fresh profile under antChromeProfilesDir
+	// and records its name here so later ensures keep using it.
+	antChromeProfilesDir    = "/data/.memoh/browser-profiles"
+	antChromeCurrentFile    = "/data/.memoh/browser-current"
+	antChromeLogFile        = "/tmp/memoh-ant-chrome.log"
 	antChromeProcessName    = "ant-chrome"
 	antBrowserLaunchAPIPort = "19876"
 	antBrowserLaunchAPIBase = "http://127.0.0.1:" + antBrowserLaunchAPIPort
@@ -90,14 +95,22 @@ func startWorkspaceBrowser(ctx context.Context) error {
 	if binPath == "" {
 		return fmt.Errorf("ant-chrome binary is unavailable at %s", antChromeToolkitPath)
 	}
-	if err := os.MkdirAll(antChromeProfileDir, 0o750); err != nil {
+	_, profileDir := currentBrowserProfile()
+	if err := os.MkdirAll(profileDir, 0o750); err != nil {
 		return fmt.Errorf("create ant-chrome profile dir: %w", err)
 	}
-	clearStaleProfileLock(ctx, antChromeProfileDir)
+	clearStaleProfileLock(ctx, profileDir)
 	if !displayProcessRunning(ctx, antChromeProcessName) {
 		// Detached from ctx: `bridge browser ensure` exits right after provisioning,
 		// and cancelling its ctx would kill the manager it just started.
-		startDisplayCommandWithEnv(context.WithoutCancel(ctx), antChromeProcessName, []string{"UBUNTU_MENUPROXY=0", "ANT_BROWSER_HIDE_WINDOW=1"}, binPath)
+		// Its output goes to a file: an inherited stdout pipe would keep a
+		// caller reading `bridge browser ensure` output waiting for EOF.
+		out, err := os.OpenFile(antChromeLogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+		if err != nil {
+			return fmt.Errorf("open ant-chrome log: %w", err)
+		}
+		startDisplayCommandWithOutput(context.WithoutCancel(ctx), antChromeProcessName, []string{"UBUNTU_MENUPROXY=0", "ANT_BROWSER_HIDE_WINDOW=1"}, out, binPath)
+		_ = out.Close()
 	}
 	if err := waitAntBrowserLaunchAPI(ctx, antBrowserLaunchAPIWait); err != nil {
 		return err
@@ -179,11 +192,12 @@ func defaultBrowserProvisionRequest() *browserProvisionRequest {
 	if startURL == "" {
 		startURL = "about:blank"
 	}
+	name, dir := currentBrowserProfile()
 	return &browserProvisionRequest{
-		ProfileName:        antChromeProfileName,
+		ProfileName:        name,
 		CoreName:           antChromeCoreName,
 		CorePath:           antChromeCoreDir,
-		UserDataDir:        antChromeProfileDir,
+		UserDataDir:        dir,
 		RestoreLastSession: "off",
 		// The workspace container always runs fingerprint-chromium as root,
 		// which it refuses to do without --no-sandbox. Workspace containers
@@ -243,4 +257,156 @@ func runBrowserEnsureCommand(ctx context.Context) int {
 		return 1
 	}
 	return 0
+}
+
+// currentBrowserProfile returns the profile name and user data dir the
+// workspace browser runs on: the original one until `bridge browser new`
+// rotates it.
+func currentBrowserProfile() (string, string) {
+	raw, err := os.ReadFile(antChromeCurrentFile)
+	name := strings.TrimSpace(string(raw))
+	if err != nil || !validRotatedProfileName(name) {
+		return antChromeProfileName, antChromeProfileDir
+	}
+	return name, filepath.Join(antChromeProfilesDir, name)
+}
+
+func validRotatedProfileName(name string) bool {
+	rest, ok := strings.CutPrefix(name, antChromeProfileName+"-")
+	if !ok || rest == "" {
+		return false
+	}
+	_, err := strconv.ParseInt(rest, 10, 64)
+	return err == nil
+}
+
+// runBrowserNewSubcommand implements `bridge browser new`: it throws away the
+// current browser instance (process, Ant-Browser profile, user data) and
+// provisions a fresh profile. Ant-Browser derives the fingerprint seed from
+// the profile ID, so the new instance gets a new fingerprint and empty
+// cookies/storage — used when a site blocks the current identity or the
+// profile keeps crashing.
+func runBrowserNewSubcommand() int {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	ctx, cancel := context.WithTimeout(ctx, 2*antBrowserLaunchAPIWait+antBrowserProvisionWait)
+	defer cancel()
+	if err := rotateWorkspaceBrowser(ctx); err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		return 1
+	}
+	return 0
+}
+
+func rotateWorkspaceBrowser(ctx context.Context) error {
+	// Make sure the manager is up so the old profile can be stopped cleanly.
+	if err := startWorkspaceBrowser(ctx); err != nil {
+		logger.FromContext(ctx).Warn("current browser failed to start before rotation", slog.Any("error", err))
+		if err := waitAntBrowserLaunchAPI(ctx, antBrowserLaunchAPIWait); err != nil {
+			return err
+		}
+	}
+	oldName, oldDir := currentBrowserProfile()
+	if id, err := findAntBrowserProfileID(ctx, oldName); err != nil {
+		return err
+	} else if id != "" {
+		// stop is best effort (it may already be dead); delete must succeed.
+		_, _ = antBrowserAPI(ctx, http.MethodPost, "/api/profiles/"+id+"/stop")
+		if _, err := antBrowserAPI(ctx, http.MethodDelete, "/api/profiles/"+id); err != nil {
+			return fmt.Errorf("delete old browser profile: %w", err)
+		}
+	}
+	// Chrome processes orphaned by an earlier manager restart are invisible to stop.
+	killProfileProcesses(ctx, oldDir)
+	if err := os.RemoveAll(oldDir); err != nil {
+		logger.FromContext(ctx).Warn("remove old browser profile dir", slog.String("dir", oldDir), slog.Any("error", err))
+	}
+
+	name := fmt.Sprintf("%s-%d", antChromeProfileName, time.Now().Unix())
+	if err := os.MkdirAll(antChromeProfilesDir, 0o750); err != nil {
+		return err
+	}
+	if err := os.WriteFile(antChromeCurrentFile, []byte(name+"\n"), 0o600); err != nil {
+		return fmt.Errorf("record new browser profile: %w", err)
+	}
+	if err := startWorkspaceBrowser(ctx); err != nil {
+		return err
+	}
+	fmt.Println(name)
+	return nil
+}
+
+func findAntBrowserProfileID(ctx context.Context, name string) (string, error) {
+	body, err := antBrowserAPI(ctx, http.MethodGet, "/api/profiles")
+	if err != nil {
+		return "", fmt.Errorf("list browser profiles: %w", err)
+	}
+	var list struct {
+		Items []struct {
+			ProfileID   string `json:"profileId"`
+			ProfileName string `json:"profileName"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(body, &list); err != nil {
+		return "", fmt.Errorf("decode browser profiles: %w", err)
+	}
+	for _, item := range list.Items {
+		if item.ProfileName == name {
+			return item.ProfileID, nil
+		}
+	}
+	return "", nil
+}
+
+func antBrowserAPI(ctx context.Context, method, path string) ([]byte, error) {
+	reqCtx, cancel := context.WithTimeout(ctx, antBrowserProvisionWait)
+	defer cancel()
+	req, err := http.NewRequestWithContext(reqCtx, method, antBrowserLaunchAPIBase+path, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := http.DefaultClient.Do(req) //nolint:gosec // G704: fixed local antmemo Launch API on 127.0.0.1.
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("%s %s returned %d: %s", method, path, resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	return body, nil
+}
+
+// killProfileProcesses SIGKILLs every process started with
+// --user-data-dir=<dir> and waits briefly for them to go away.
+func killProfileProcesses(ctx context.Context, dir string) {
+	flag := []byte("--user-data-dir=" + dir + "\x00")
+	entries, _ := os.ReadDir("/proc")
+	var pids []int
+	for _, e := range entries {
+		pid, err := strconv.Atoi(e.Name())
+		if err != nil || pid == os.Getpid() {
+			continue
+		}
+		cmdline, err := os.ReadFile(filepath.Join("/proc", e.Name(), "cmdline"))
+		if err != nil || !bytes.Contains(cmdline, flag) {
+			continue
+		}
+		if syscall.Kill(pid, syscall.SIGKILL) == nil {
+			pids = append(pids, pid)
+		}
+	}
+	for i := 0; i < 20 && len(pids) > 0; i++ {
+		alive := pids[:0]
+		for _, pid := range pids {
+			if _, err := os.Stat(fmt.Sprintf("/proc/%d", pid)); err == nil {
+				alive = append(alive, pid)
+			}
+		}
+		pids = alive
+		time.Sleep(100 * time.Millisecond)
+	}
+	if len(pids) > 0 {
+		logger.FromContext(ctx).Warn("browser processes survived SIGKILL", slog.Any("pids", pids))
+	}
 }

@@ -111,7 +111,7 @@ func TestDisplayPrepareCommandUsesImageScripts(t *testing.T) {
 		t.Fatal("injected style script must omit the Xfce actions menu with logout and power options")
 	}
 	if !strings.Contains(cmd, `browser=/opt/memoh/toolkit/browser/bin/ant-chrome`) ||
-		!strings.Contains(cmd, `write_desktop_file "$file" "Browser" "web-browser" "$browser"`) {
+		!strings.Contains(cmd, `write_desktop_file "$file" "Ant Browser" "web-browser" "$browser"`) {
 		t.Fatal("injected style script must pin the dock browser launcher to the antmemo ant-chrome binary")
 	}
 	terminalIndex := strings.Index(cmd, `terminal="$(command -v xfce4-terminal`)
@@ -301,7 +301,7 @@ func TestDisplayApplyStyleCommandUsesImageScripts(t *testing.T) {
 		t.Fatal("display style command must omit the Xfce actions menu with logout and power options")
 	}
 	if !strings.Contains(cmd, `browser=/opt/memoh/toolkit/browser/bin/ant-chrome`) ||
-		!strings.Contains(cmd, `write_desktop_file "$file" "Browser" "web-browser" "$browser"`) {
+		!strings.Contains(cmd, `write_desktop_file "$file" "Ant Browser" "web-browser" "$browser"`) {
 		t.Fatal("display style command must pin the dock browser launcher to the antmemo ant-chrome binary")
 	}
 	if !strings.Contains(cmd, `write_desktop_file "$file" "Files" "$icon"`) ||

@@ -139,7 +139,7 @@ func (p *BrowserProvider) Tools(ctx context.Context, session SessionContext) ([]
 			Name:        ToolBrowserAction().String(),
 			Description: "Operate the current workspace browser tab. Prefer element refs from an observation result over CSS selectors; use selectors only as a fallback. Use fill to replace input values, type to append text, and press for shortcuts or submit keys. After navigation or UI-changing actions, observe again only when the next step depends on the changed state.",
 			Parameters: browserObjectSchema(map[string]any{
-				"action":          map[string]any{"type": "string", "enum": []string{"navigate", "click", "double_click", "focus", "type", "fill", "press", "hover", "select", "check", "uncheck", "scroll", "scroll_into_view", "drag", "upload", "wait", "go_back", "go_forward", "reload", "tab_new", "tab_select", "tab_close"}, "description": "Browser action to perform. Compatibility aliases dblclick, scrollintoview, keyboard_type, and keyboard_inserttext are also accepted; keydown and keyup dispatch a single raw key event."},
+				"action":          map[string]any{"type": "string", "enum": []string{"navigate", "click", "double_click", "focus", "type", "fill", "press", "hover", "select", "check", "uncheck", "scroll", "scroll_into_view", "drag", "upload", "wait", "go_back", "go_forward", "reload", "tab_new", "tab_select", "tab_close", "new_instance"}, "description": "Browser action to perform. new_instance discards the current browser (cookies, storage, open tabs) and starts a fresh one with a new fingerprint; use it when a site blocks or bans the current browser, or the browser keeps crashing. Compatibility aliases dblclick, scrollintoview, keyboard_type, and keyboard_inserttext are also accepted; keydown and keyup dispatch a single raw key event."},
 				"url":             map[string]any{"type": "string", "description": "URL to open for navigate or tab_new."},
 				"ref":             map[string]any{"type": "string", "description": "Element ref such as e12 from a browser observation snapshot or screenshot annotation. Preferred over selector."},
 				"selector":        map[string]any{"type": "string", "description": "CSS selector for the target element when no ref is available."},
@@ -249,6 +249,9 @@ func (p *BrowserProvider) execBrowserAction(ctx context.Context, session Session
 	action := StringArg(args, "action")
 	if action == "" {
 		return nil, errors.New("action is required")
+	}
+	if action == "new_instance" {
+		return p.newBrowserInstance(ctx, botID)
 	}
 	runCtx, cancel := context.WithTimeout(ctx, browserToolTimeout)
 	defer cancel()
@@ -684,6 +687,37 @@ func (p *BrowserProvider) cdpReachable(ctx context.Context, client *bridge.Clien
 		return false
 	}
 	return true
+}
+
+// newBrowserInstance rotates the workspace browser to a fresh Ant-Browser
+// profile (new fingerprint, empty storage) via `bridge browser new`.
+func (p *BrowserProvider) newBrowserInstance(ctx context.Context, botID string) (any, error) {
+	if p.containers == nil {
+		return nil, errors.New("workspace runtime provider is not configured")
+	}
+	client, err := p.containers.MCPClient(ctx, botID)
+	if err != nil {
+		return nil, err
+	}
+	result, err := client.Exec(ctx, "/opt/memoh/bridge browser new", "/", 150)
+	if err != nil {
+		return nil, err
+	}
+	if result.ExitCode != 0 {
+		msg := strings.TrimSpace(result.Stderr)
+		if msg == "" {
+			msg = strings.TrimSpace(result.Stdout)
+		}
+		return nil, fmt.Errorf("start new browser instance failed: %s", msg)
+	}
+	if !p.cdpReachable(ctx, client) {
+		return nil, errors.New("new browser instance started but its CDP endpoint is not reachable")
+	}
+	return map[string]any{
+		"ok":      true,
+		"profile": strings.TrimSpace(result.Stdout),
+		"message": "Started a fresh browser instance with a new fingerprint. Previous cookies, logins and tabs are gone; navigate again.",
+	}, nil
 }
 
 func (*BrowserProvider) startDesktopBrowser(ctx context.Context, client *bridge.Client) error {

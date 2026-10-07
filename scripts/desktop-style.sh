@@ -707,7 +707,7 @@ browser_desktop_file() {
   browser=/opt/memoh/toolkit/browser/bin/ant-chrome
   if [ -x "$browser" ]; then
     file="$HOME/.local/share/applications/memoh-browser.desktop"
-    write_desktop_file "$file" "Browser" "web-browser" "$browser"
+    write_desktop_file "$file" "Ant Browser" "web-browser" "$browser"
     printf '%s\n' "$file"
     return 0
   fi

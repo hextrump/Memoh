@@ -667,6 +667,12 @@ func startDisplayCommand(ctx context.Context, name, path string, args ...string)
 }
 
 func startDisplayCommandWithEnv(ctx context.Context, name string, extraEnv []string, path string, args ...string) {
+	startDisplayCommandWithOutput(ctx, name, extraEnv, os.Stdout, path, args...)
+}
+
+// startDisplayCommandWithOutput is startDisplayCommandWithEnv with the helper's
+// stdout/stderr sent to out, for helpers that outlive the calling command.
+func startDisplayCommandWithOutput(ctx context.Context, name string, extraEnv []string, out *os.File, path string, args ...string) {
 	info, err := os.Stat(path)
 	if err != nil {
 		logger.FromContext(ctx).Warn("display helper unavailable", slog.String("name", name), slog.String("path", path), slog.Any("error", err))
@@ -678,8 +684,8 @@ func startDisplayCommandWithEnv(ctx context.Context, name string, extraEnv []str
 	}
 	cmd := exec.CommandContext(ctx, path, args...) //nolint:gosec // path is a fixed runtime bundle executable
 	cmd.Env = append(withDisplayEnv(os.Environ()), extraEnv...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = out
+	cmd.Stderr = out
 	if err := cmd.Start(); err != nil {
 		logger.FromContext(ctx).Warn("failed to start display helper", slog.String("name", name), slog.Any("error", err))
 		return
