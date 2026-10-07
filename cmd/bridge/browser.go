@@ -95,7 +95,7 @@ func startWorkspaceBrowser(ctx context.Context) error {
 	}
 	clearStaleProfileLock(ctx, antChromeProfileDir)
 	if !displayProcessRunning(ctx, antChromeProcessName) {
-		startDisplayCommandWithEnv(ctx, antChromeProcessName, []string{"UBUNTU_MENUPROXY=0"}, binPath)
+		startDisplayCommandWithEnv(ctx, antChromeProcessName, []string{"UBUNTU_MENUPROXY=0", "ANT_BROWSER_HIDE_WINDOW=1"}, binPath)
 	}
 	if err := waitAntBrowserLaunchAPI(ctx, antBrowserLaunchAPIWait); err != nil {
 		return err
@@ -186,8 +186,9 @@ func defaultBrowserProvisionRequest() *browserProvisionRequest {
 		// The workspace container always runs fingerprint-chromium as root,
 		// which it refuses to do without --no-sandbox. Workspace containers
 		// don't get an enlarged /dev/shm, so also fall back to /tmp for
-		// shared memory rather than crashing on the default 64MB tmpfs.
-		LaunchArgs:    []string{"--no-sandbox", "--disable-dev-shm-usage"},
+		// shared memory rather than crashing on the default 64MB tmpfs. The
+		// window fills the desktop and --test-type drops the --no-sandbox infobar.
+		LaunchArgs:    []string{"--no-sandbox", "--disable-dev-shm-usage", "--start-maximized", "--test-type", "--hide-crash-restore-bubble"},
 		StartURL:      startURL,
 		Autostart:     true,
 		ForceRecreate: false,
