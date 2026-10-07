@@ -32,6 +32,9 @@ func main() {
 	if len(os.Args) >= 3 && os.Args[1] == "browser" && os.Args[2] == "new" {
 		os.Exit(runBrowserNewSubcommand())
 	}
+	if len(os.Args) >= 3 && os.Args[1] == "browser" && os.Args[2] == "proxy" {
+		os.Exit(runBrowserProxySubcommand())
+	}
 	os.Exit(runBridge())
 }
 

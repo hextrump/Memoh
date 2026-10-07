@@ -37,6 +37,8 @@ const (
 	antChromeProfilesDir    = "/data/.memoh/browser-profiles"
 	antChromeCurrentFile    = "/data/.memoh/browser-current"
 	antChromeLogFile        = "/tmp/memoh-ant-chrome.log"
+	antChromeProxyFile      = "/data/.memoh/browser-proxy"
+	antChromeXrayPath       = "/opt/memoh/toolkit/browser/xray/xray"
 	antChromeProcessName    = "ant-chrome"
 	antBrowserLaunchAPIPort = "19876"
 	antBrowserLaunchAPIBase = "http://127.0.0.1:" + antBrowserLaunchAPIPort
@@ -109,7 +111,7 @@ func startWorkspaceBrowser(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("open ant-chrome log: %w", err)
 		}
-		startDisplayCommandWithOutput(context.WithoutCancel(ctx), antChromeProcessName, []string{"UBUNTU_MENUPROXY=0", "ANT_BROWSER_HIDE_WINDOW=1"}, out, binPath)
+		startDisplayCommandWithOutput(context.WithoutCancel(ctx), antChromeProcessName, []string{"UBUNTU_MENUPROXY=0", "ANT_BROWSER_HIDE_WINDOW=1", "XRAY_BINARY_PATH=" + antChromeXrayPath}, out, binPath)
 		_ = out.Close()
 	}
 	if err := waitAntBrowserLaunchAPI(ctx, antBrowserLaunchAPIWait); err != nil {
@@ -205,6 +207,7 @@ func defaultBrowserProvisionRequest() *browserProvisionRequest {
 		// shared memory rather than crashing on the default 64MB tmpfs. The
 		// window fills the desktop and --test-type drops the --no-sandbox infobar.
 		LaunchArgs:    []string{"--no-sandbox", "--disable-dev-shm-usage", "--start-maximized", "--test-type", "--hide-crash-restore-bubble"},
+		ProxyConfig:   currentBrowserProxy(),
 		StartURL:      startURL,
 		Autostart:     true,
 		ForceRecreate: false,
@@ -409,4 +412,109 @@ func killProfileProcesses(ctx context.Context, dir string) {
 	if len(pids) > 0 {
 		logger.FromContext(ctx).Warn("browser processes survived SIGKILL", slog.Any("pids", pids))
 	}
+}
+
+// currentBrowserProxy returns the proxy set by `bridge browser proxy`, or
+// direct. Authenticated http/socks5 and vmess/ss/... go through Ant-Browser's
+// xray bridge, since Chromium's --proxy-server cannot carry credentials.
+func currentBrowserProxy() string {
+	raw, err := os.ReadFile(antChromeProxyFile)
+	if v := strings.TrimSpace(string(raw)); err == nil && v != "" {
+		return v
+	}
+	return "direct://"
+}
+
+var browserProxySchemes = []string{"http://", "https://", "socks5://", "vmess://", "vless://", "trojan://", "ss://", "hysteria2://", "tuic://"}
+
+func validBrowserProxy(v string) bool {
+	if strings.ContainsAny(v, " \t\r\n") {
+		return false
+	}
+	l := strings.ToLower(v)
+	for _, scheme := range browserProxySchemes {
+		if strings.HasPrefix(l, scheme) && len(v) > len(scheme) {
+			return true
+		}
+	}
+	return false
+}
+
+// runBrowserProxySubcommand implements `bridge browser proxy`: it reads a
+// proxy URL (or "direct") from stdin, keeps it for future starts, and
+// restarts the current browser instance on it. The instance (fingerprint,
+// cookies) stays the same; only the exit IP changes.
+func runBrowserProxySubcommand() int {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	ctx, cancel := context.WithTimeout(ctx, 3*antBrowserLaunchAPIWait+antBrowserProvisionWait)
+	defer cancel()
+	raw, err := io.ReadAll(io.LimitReader(os.Stdin, 8192))
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error()) //nolint:gosec // G705: stderr of a CLI subcommand, not HTML
+		return 1
+	}
+	if err := setWorkspaceBrowserProxy(ctx, strings.TrimSpace(string(raw))); err != nil {
+		fmt.Fprintln(os.Stderr, err.Error()) //nolint:gosec // G705: stderr of a CLI subcommand, not HTML
+		return 1
+	}
+	return 0
+}
+
+func setWorkspaceBrowserProxy(ctx context.Context, proxy string) error {
+	direct := proxy == "" || strings.EqualFold(proxy, "direct") || strings.EqualFold(proxy, "direct://")
+	if !direct && !validBrowserProxy(proxy) {
+		return fmt.Errorf("unsupported proxy %q: use scheme://[user:pass@]host:port with one of %s, or direct", redactProxy(proxy), strings.Join(browserProxySchemes, " "))
+	}
+	if err := os.MkdirAll(filepath.Dir(antChromeProxyFile), 0o750); err != nil {
+		return err
+	}
+	if direct {
+		if err := os.Remove(antChromeProxyFile); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	} else if err := os.WriteFile(antChromeProxyFile, []byte(proxy+"\n"), 0o600); err != nil { //nolint:gosec // G703: fixed path; only the content is user input
+		return fmt.Errorf("record browser proxy: %w", err)
+	}
+	err := restartWorkspaceBrowser(ctx)
+	if err == nil || direct {
+		return err
+	}
+	// Never leave the bot without a browser: fall back to direct.
+	_ = os.Remove(antChromeProxyFile)
+	if restoreErr := restartWorkspaceBrowser(ctx); restoreErr != nil {
+		return fmt.Errorf("browser failed to start with the proxy (%w) and again without it: %w", err, restoreErr)
+	}
+	return fmt.Errorf("browser failed to start with the proxy, switched back to a direct connection: %w", err)
+}
+
+// restartWorkspaceBrowser stops the current profile so the next provision
+// relaunches it with the updated settings.
+func restartWorkspaceBrowser(ctx context.Context) error {
+	if err := waitAntBrowserLaunchAPI(ctx, 0); err != nil {
+		// Manager not running yet: a plain start already uses the new settings.
+		return startWorkspaceBrowser(ctx)
+	}
+	name, dir := currentBrowserProfile()
+	if id, err := findAntBrowserProfileID(ctx, name); err != nil {
+		return err
+	} else if id != "" {
+		_, _ = antBrowserAPI(ctx, http.MethodPost, "/api/profiles/"+id+"/stop")
+	}
+	killProfileProcesses(ctx, dir)
+	return startWorkspaceBrowser(ctx)
+}
+
+// redactProxy hides the password in a proxy URL for messages and logs.
+func redactProxy(v string) string {
+	at := strings.LastIndexByte(v, '@')
+	scheme := strings.Index(v, "://")
+	if at < 0 || scheme < 0 || at < scheme {
+		return v
+	}
+	userinfo := v[scheme+3 : at]
+	if user, _, ok := strings.Cut(userinfo, ":"); ok {
+		return v[:scheme+3] + user + ":***" + v[at:]
+	}
+	return v[:scheme+3] + "***" + v[at:]
 }

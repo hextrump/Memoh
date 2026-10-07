@@ -140,8 +140,9 @@ func (p *BrowserProvider) Tools(ctx context.Context, session SessionContext) ([]
 			Name:        ToolBrowserAction().String(),
 			Description: "Operate the current workspace browser tab. Prefer element refs from an observation result over CSS selectors; use selectors only as a fallback. Use fill to replace input values, type to append text, and press for shortcuts or submit keys. After navigation or UI-changing actions, observe again only when the next step depends on the changed state.",
 			Parameters: browserObjectSchema(map[string]any{
-				"action":          map[string]any{"type": "string", "enum": []string{"navigate", "click", "double_click", "focus", "type", "fill", "press", "hover", "select", "check", "uncheck", "scroll", "scroll_into_view", "drag", "upload", "wait", "go_back", "go_forward", "reload", "tab_new", "tab_select", "tab_close", "new_instance"}, "description": "Browser action to perform. new_instance is yours to call (there is no such button for the user): it discards the current browser (cookies, logins, storage, open tabs) and starts a fresh one with a new fingerprint. Call it, then retry, when a site blocks or bans the current browser (access denied, flagged as a bot, endless captcha) or the browser keeps crashing; a single crash is recovered automatically and does not need it. Compatibility aliases dblclick, scrollintoview, keyboard_type, and keyboard_inserttext are also accepted; keydown and keyup dispatch a single raw key event."},
+				"action":          map[string]any{"type": "string", "enum": []string{"navigate", "click", "double_click", "focus", "type", "fill", "press", "hover", "select", "check", "uncheck", "scroll", "scroll_into_view", "drag", "upload", "wait", "go_back", "go_forward", "reload", "tab_new", "tab_select", "tab_close", "new_instance", "set_proxy"}, "description": "Browser action to perform. set_proxy routes the browser through the proxy given in proxy (or back to a direct connection with proxy=direct), keeping the same instance, cookies and fingerprint, and reports the new exit IP; use it when the user asks to change the browser's IP or gives you a proxy, or when a site blocks by IP so new_instance alone does not help. new_instance is yours to call (there is no such button for the user): it discards the current browser (cookies, logins, storage, open tabs) and starts a fresh one with a new fingerprint. Call it, then retry, when a site blocks or bans the current browser (access denied, flagged as a bot, endless captcha) or the browser keeps crashing; a single crash is recovered automatically and does not need it. Compatibility aliases dblclick, scrollintoview, keyboard_type, and keyboard_inserttext are also accepted; keydown and keyup dispatch a single raw key event."},
 				"url":             map[string]any{"type": "string", "description": "URL to open for navigate or tab_new."},
+				"proxy":           map[string]any{"type": "string", "description": "Proxy for set_proxy: scheme://[user:pass@]host:port with http, https, socks5, or a vmess/vless/trojan/ss/hysteria2/tuic share link; direct removes the proxy. It is kept for later restarts and new instances."},
 				"ref":             map[string]any{"type": "string", "description": "Element ref such as e12 from a browser observation snapshot or screenshot annotation. Preferred over selector."},
 				"selector":        map[string]any{"type": "string", "description": "CSS selector for the target element when no ref is available."},
 				"text":            map[string]any{"type": "string", "description": "Text for type or fill."},
@@ -253,6 +254,9 @@ func (p *BrowserProvider) execBrowserAction(ctx context.Context, session Session
 	}
 	if action == "new_instance" {
 		return p.newBrowserInstance(ctx, botID)
+	}
+	if action == "set_proxy" {
+		return p.setBrowserProxy(ctx, botID, StringArg(args, "proxy"))
 	}
 	runCtx, cancel := context.WithTimeout(ctx, browserToolTimeout)
 	defer cancel()
@@ -719,6 +723,99 @@ func (p *BrowserProvider) newBrowserInstance(ctx context.Context, botID string) 
 		"profile": strings.TrimSpace(result.Stdout),
 		"message": "Started a fresh browser instance with a new fingerprint. Previous cookies, logins and tabs are gone; navigate again.",
 	}, nil
+}
+
+// setBrowserProxy restarts the workspace browser behind proxy via
+// `bridge browser proxy` (stdin keeps credentials out of the command line),
+// then confirms the exit IP through the browser itself.
+func (p *BrowserProvider) setBrowserProxy(ctx context.Context, botID, proxy string) (any, error) {
+	proxy = strings.TrimSpace(proxy)
+	if proxy == "" {
+		return nil, errors.New("proxy is required for set_proxy (use direct to remove the proxy)")
+	}
+	if p.containers == nil {
+		return nil, errors.New("workspace runtime provider is not configured")
+	}
+	client, err := p.containers.MCPClient(ctx, botID)
+	if err != nil {
+		return nil, err
+	}
+	if err := runBrowserProxyCommand(ctx, client, proxy); err != nil {
+		return nil, err
+	}
+	ip, ipErr := p.browserExitIP(ctx, botID)
+	if ipErr != nil && !strings.EqualFold(proxy, "direct") {
+		if err := runBrowserProxyCommand(ctx, client, "direct"); err != nil {
+			return nil, fmt.Errorf("pages do not load through the proxy (%w), and switching back to direct failed: %w", ipErr, err)
+		}
+		return nil, fmt.Errorf("pages do not load through the proxy (%w); switched the browser back to a direct connection. Check the proxy address and credentials", ipErr)
+	}
+	result := map[string]any{"ok": true, "proxy": redactProxyURL(proxy)}
+	if ipErr != nil {
+		result["ip_error"] = ipErr.Error()
+	} else {
+		result["ip"] = ip
+	}
+	return result, nil
+}
+
+func runBrowserProxyCommand(ctx context.Context, client *bridge.Client, proxy string) error {
+	result, err := client.ExecWithStdin(ctx, "/opt/memoh/bridge browser proxy", "/", 200, []byte(proxy))
+	if err != nil {
+		return err
+	}
+	if result.ExitCode != 0 {
+		msg := strings.TrimSpace(result.Stderr)
+		if msg == "" {
+			msg = strings.TrimSpace(result.Stdout)
+		}
+		return fmt.Errorf("set browser proxy failed: %s", msg)
+	}
+	return nil
+}
+
+const browserIPCheckURL = "https://api.ipify.org/"
+
+func (p *BrowserProvider) browserExitIP(ctx context.Context, botID string) (string, error) {
+	runCtx, cancel := context.WithTimeout(ctx, browserToolTimeout)
+	defer cancel()
+	_, _, page, err := p.connectPage(runCtx, botID)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = page.conn.Close() }()
+	if _, err := page.navigate(runCtx, browserIPCheckURL, 20000); err != nil {
+		return "", err
+	}
+	text, err := page.evaluateString(runCtx, "document.body ? document.body.innerText.trim() : ''")
+	if err != nil {
+		return "", err
+	}
+	if net.ParseIP(text) == nil {
+		return "", fmt.Errorf("IP check page returned %q", truncateRunes(text, 120))
+	}
+	return text, nil
+}
+
+func truncateRunes(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n]) + "…"
+}
+
+// redactProxyURL hides the password in a proxy URL before it reaches the model's transcript.
+func redactProxyURL(v string) string {
+	at := strings.LastIndexByte(v, '@')
+	scheme := strings.Index(v, "://")
+	if at < 0 || scheme < 0 || at < scheme {
+		return v
+	}
+	if user, _, ok := strings.Cut(v[scheme+3:at], ":"); ok {
+		return v[:scheme+3] + user + ":***" + v[at:]
+	}
+	return v[:scheme+3] + "***" + v[at:]
 }
 
 func (*BrowserProvider) startDesktopBrowser(ctx context.Context, client *bridge.Client) error {

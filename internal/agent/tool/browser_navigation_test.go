@@ -110,3 +110,17 @@ func TestLooksBlocked(t *testing.T) {
 		}
 	}
 }
+
+func TestRedactProxyURL(t *testing.T) {
+	cases := map[string]string{ //nolint:gosec // G101: fake credentials for the redaction test
+		"socks5://user:secret@host:3000": "socks5://user:***@host:3000",
+		"http://token@host:8080":         "http://***@host:8080",
+		"http://host:8080":               "http://host:8080",
+		"direct":                         "direct",
+	}
+	for in, want := range cases {
+		if got := redactProxyURL(in); got != want {
+			t.Errorf("redactProxyURL(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

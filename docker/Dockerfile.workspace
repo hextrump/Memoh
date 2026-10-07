@@ -104,9 +104,10 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 FROM debian:bookworm-slim AS fingerprint-chromium-fetcher
 ARG TARGETARCH
 ARG FINGERPRINT_CHROMIUM_VERSION=148.0.7778.215
+ARG XRAY_VERSION=v26.3.27
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    ca-certificates curl xz-utils \
+    ca-certificates curl unzip xz-utils \
   && rm -rf /var/lib/apt/lists/*
 RUN set -eux; \
     if [ "${TARGETARCH:-amd64}" != "amd64" ]; then \
@@ -119,6 +120,13 @@ RUN set -eux; \
     tar -xJf /tmp/fingerprint-chromium.tar.xz -C /opt/memoh/toolkit/browser/chrome --strip-components=1; \
     rm -f /tmp/fingerprint-chromium.tar.xz; \
     test -x /opt/memoh/toolkit/browser/chrome/chrome
+# Xray carries the browser's proxy (Chromium cannot authenticate to socks5/http proxies itself).
+RUN set -eux; \
+    mkdir -p /opt/memoh/toolkit/browser/xray; \
+    curl -fsSL -o /tmp/xray.zip "https://github.com/XTLS/Xray-core/releases/download/${XRAY_VERSION}/Xray-linux-64.zip"; \
+    unzip -q /tmp/xray.zip xray geoip.dat geosite.dat -d /opt/memoh/toolkit/browser/xray; \
+    rm -f /tmp/xray.zip; \
+    /opt/memoh/toolkit/browser/xray/xray version
 
 FROM debian:bookworm-slim AS workspace
 ARG MEMOH_APT_COMMAND_TIMEOUT=1200
@@ -144,7 +152,8 @@ RUN set -eux; \
 COPY --from=toolkit-builder /opt/memoh/toolkit /opt/memoh/toolkit
 COPY --from=ant-browser-builder /out/ant-chrome /opt/memoh/toolkit/browser/bin/ant-chrome
 COPY --from=fingerprint-chromium-fetcher /opt/memoh/toolkit/browser/chrome /opt/memoh/toolkit/browser/chrome
-RUN chmod 0755 /opt/memoh/toolkit/browser/bin/ant-chrome /opt/memoh/toolkit/browser/chrome/chrome
+COPY --from=fingerprint-chromium-fetcher /opt/memoh/toolkit/browser/xray /opt/memoh/toolkit/browser/xray
+RUN chmod 0755 /opt/memoh/toolkit/browser/bin/ant-chrome /opt/memoh/toolkit/browser/chrome/chrome /opt/memoh/toolkit/browser/xray/xray
 COPY scripts/desktop-style.sh scripts/display-apply-style.sh scripts/display-prepare.sh /opt/memoh/scripts/
 RUN printf '%s\n' 'export PATH="/opt/memoh/toolkit/bin:$PATH"' > /etc/profile.d/memoh-toolkit.sh \
   && chmod 0755 /opt/memoh/scripts/*.sh \
