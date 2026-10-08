@@ -35,6 +35,20 @@
           variant="secondary"
           size="icon-sm"
           class="rounded-full"
+          :title="t('messenger.toggleTheme')"
+          :aria-label="t('messenger.toggleTheme')"
+          @click="settingsStore.setTheme(settingsStore.isDark ? 'light' : 'dark')"
+        >
+          <component
+            :is="settingsStore.isDark ? Sun : Moon"
+            :stroke-width="2"
+            class="size-4"
+          />
+        </Button>
+        <Button
+          variant="secondary"
+          size="icon-sm"
+          class="rounded-full"
           :title="t('messenger.searchBots')"
           :aria-label="t('messenger.searchBots')"
           :aria-pressed="botFilterOpen"
@@ -255,7 +269,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
-import { Files, History, MessageCircle, Search, Calendar, Blocks, Plus } from 'lucide-vue-next'
+import { Files, History, MessageCircle, Search, Calendar, Blocks, Plus, Sun, Moon } from 'lucide-vue-next'
 import { BadgeCount, Button, Input, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@felinic/ui'
 import { useSettingsStore } from '@/store/settings'
 import { useChatStore } from '@/store/chat-list'

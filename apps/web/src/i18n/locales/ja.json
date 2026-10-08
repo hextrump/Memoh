@@ -4122,6 +4122,7 @@
     "searchBots": "Bot を検索",
     "searchBotsPlaceholder": "Bot を検索",
     "newConversation": "新しい会話",
+    "toggleTheme": "ライト／ダークを切り替え",
     "connectApps": "アプリを接続",
     "noMatches": "一致する Bot がありません",
     "emptyBots": "Bot はまだありません。＋ で作成できます。",

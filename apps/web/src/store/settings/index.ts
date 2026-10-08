@@ -23,6 +23,7 @@ import {
   normalizeShikiTheme,
   type ShikiThemeVariant,
 } from './shiki-theme'
+import { readSharedTheme, writeSharedTheme } from './shared-theme'
 import { DEFAULT_MERMAID_THEME, isMermaidTheme, type MermaidTheme } from './mermaid'
 
 export type ThemePreference = 'light' | 'dark' | 'system'
@@ -46,7 +47,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const defaultUiFontFamily = computed(() => DEFAULT_UI_FONT_FAMILY)
   const defaultCodeFontFamily = computed(() => DEFAULT_CODE_FONT_FAMILY)
   const language = useStorage<Locale>('language', 'en')
-  const theme = useStorage<ThemePreference>('theme', 'dark')
+  const theme = useStorage<ThemePreference>('theme', 'light')
   const colorScheme = useStorage<ColorSchemeId>('color-scheme', 'memoh')
   const uiFontFamily = useStorage<string>('ui-font-family', '')
   const codeFontFamily = useStorage<string>('code-font-family', '')
@@ -102,6 +103,26 @@ export const useSettingsStore = defineStore('settings', () => {
   watch(theme, (value) => {
     colorMode.value = value === 'system' ? 'auto' : value
   }, { immediate: true })
+
+  // Follow the theme picked on the portal, and hand ours back to it. 'system'
+  // stays 'system' as long as it resolves to what the portal shows.
+  const adoptSharedTheme = () => {
+    const shared = readSharedTheme()
+    if (shared && shared !== resolvedColorMode.value) {
+      // Set colorMode too, so the write-back below never sees the stale mode.
+      theme.value = shared
+      colorMode.value = shared
+    }
+  }
+  adoptSharedTheme()
+  watch(resolvedColorMode, (value) => {
+    if (value === 'light' || value === 'dark') writeSharedTheme(value)
+  }, { immediate: true })
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') adoptSharedTheme()
+    })
+  }
 
   watch(language, (value) => {
     i18n.locale.value = value
