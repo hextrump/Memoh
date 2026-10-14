@@ -35,6 +35,7 @@
           </span>
         </CommandItem>
         <CommandItem
+          v-if="!isSingleBotDeployment"
           :value="`create-quick ${t('messenger.picker.quickCreate')}`"
           class="gap-3"
           @select="emitQuickCreate"
@@ -101,6 +102,7 @@ import { Plus, Sparkles } from 'lucide-vue-next'
 import { useChatStore } from '@/store/chat-list'
 import { useWorkspaceTabsStore } from '@/store/workspace-tabs'
 import { botInitials } from '@/utils/bot-initials'
+import { isSingleBotDeployment } from '@/lib/deployment'
 
 const open = defineModel<boolean>('open', { default: false })
 const emit = defineEmits<{ 'quick-create': [] }>()

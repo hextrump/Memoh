@@ -175,7 +175,8 @@ func EnsureBotDesigner(ctx context.Context, log *slog.Logger, cfg config.Config,
 		Name:         botDesignerName,
 		DisplayName:  botDesignerDisplayName,
 		Metadata:     map[string]any{agenttools.BotDesignerMetadataKey: true},
-		WaitForReady: true,
+		WaitForReady:  cfg.BotDesigner.HasWorkspace(),
+		SkipLifecycle: !cfg.BotDesigner.HasWorkspace(),
 	})
 	if err != nil {
 		return fmt.Errorf("create bot designer: %w", err)
@@ -183,8 +184,12 @@ func EnsureBotDesigner(ctx context.Context, log *slog.Logger, cfg config.Config,
 	if _, err := settingsService.UpsertBot(ctx, bot.ID, settings.UpsertRequest{ChatModelID: &modelID}); err != nil {
 		return fmt.Errorf("set bot designer model: %w", err)
 	}
-	if err := writeBotPersona(ctx, manager, bot.ID, templates.BotDesignerPersona); err != nil {
-		return err
+	if cfg.BotDesigner.HasWorkspace() {
+		if err := writeBotPersona(ctx, manager, bot.ID, templates.BotDesignerPersona); err != nil {
+			return err
+		}
+	} else if _, err := botService.MarkReady(ctx, bot.ID); err != nil {
+		return fmt.Errorf("mark workspace-free bot designer ready: %w", err)
 	}
 	log.Info("bot designer seeded", slog.String("bot_id", bot.ID), slog.String("model_id", modelID))
 	return nil

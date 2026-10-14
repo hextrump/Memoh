@@ -46,7 +46,7 @@ func FoundationModule() fx.Option {
 			providePostgresStore,
 			provideDBQueries,
 			provideAccountStore,
-			bots.NewService,
+			provideBotsService,
 			provideAccountService,
 			acl.NewService,
 			channelaccess.NewService,

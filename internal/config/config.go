@@ -93,6 +93,13 @@ type Config struct {
 	WebhookTunnel         WebhookTunnelConfig         `toml:"webhook_tunnel"`
 	ConnectIt             ConnectItConfig             `toml:"connect_it"`
 	BotDesigner           BotDesignerConfig           `toml:"bot_designer"`
+	BotPolicy             BotPolicyConfig             `toml:"bot_policy"`
+}
+
+// BotPolicyConfig contains deployment-level limits for user-owned bots.
+// Zero keeps the default Memoh behavior (no limit).
+type BotPolicyConfig struct {
+	MaxUserBots int `toml:"max_user_bots"`
 }
 
 // BotDesignerConfig controls the built-in "Bot Designer" bot seeded for the
@@ -102,10 +109,17 @@ type Config struct {
 type BotDesignerConfig struct {
 	Enabled *bool  `toml:"enabled"`
 	ModelID string `toml:"model_id"`
+	// WorkspaceEnabled controls whether the built-in designer gets its own
+	// desktop workspace. It defaults to true for backwards compatibility.
+	WorkspaceEnabled *bool `toml:"workspace_enabled"`
 }
 
 func (c BotDesignerConfig) IsEnabled() bool {
 	return c.Enabled == nil || *c.Enabled
+}
+
+func (c BotDesignerConfig) HasWorkspace() bool {
+	return c.WorkspaceEnabled == nil || *c.WorkspaceEnabled
 }
 
 // ConnectItConfig is the deployment-level credential Memoh uses to call its

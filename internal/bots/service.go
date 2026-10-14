@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -31,6 +32,8 @@ type Service struct {
 	connectorLifecycle    ConnectorLifecycle
 	checkers              []RuntimeChecker
 	containerReachability func(ctx context.Context, botID string) error
+	maxUserBots          int
+	createMu             sync.Mutex
 }
 
 const (
@@ -45,6 +48,7 @@ var (
 	ErrBotNameTaken      = errors.New("bot name already taken")
 	ErrBotNameInvalid    = errors.New("bot name is invalid")
 	ErrBotNameReserved   = errors.New("bot name is reserved")
+	ErrBotLimitReached   = errors.New("user bot limit reached")
 )
 
 // NewService creates a new bot service.
@@ -56,6 +60,15 @@ func NewService(log *slog.Logger, queries dbstore.Queries) *Service {
 		queries: queries,
 		logger:  log.With(slog.String("service", "bots")),
 	}
+}
+
+// SetMaxUserBots limits ordinary user bots for deployments where one bot owns
+// one complete desktop. A value of zero disables the limit.
+func (s *Service) SetMaxUserBots(limit int) {
+	if limit < 0 {
+		limit = 0
+	}
+	s.maxUserBots = limit
 }
 
 // SetContainerLifecycle registers a container lifecycle handler for bot operations.
@@ -114,6 +127,19 @@ func (s *Service) Create(ctx context.Context, ownerUserID string, req CreateBotR
 	}
 	if err := s.ensureUserExists(ctx, ownerUUID); err != nil {
 		return Bot{}, err
+	}
+	if s.maxUserBots > 0 {
+		// Serialize the check with the insert so concurrent requests cannot
+		// create two desktops past the configured limit.
+		s.createMu.Lock()
+		defer s.createMu.Unlock()
+		count, err := s.countUserBots(ctx, ownerUUID)
+		if err != nil {
+			return Bot{}, err
+		}
+		if !isSystemBotMetadata(req.Metadata) && count >= s.maxUserBots {
+			return Bot{}, ErrBotLimitReached
+		}
 	}
 	aclPresetKey := acl.NormalizePresetKey(req.AclPreset)
 	if _, err := acl.ResolvePreset(aclPresetKey); err != nil {
@@ -188,6 +214,29 @@ func (s *Service) Create(ctx context.Context, ownerUserID string, req CreateBotR
 	}
 	s.enqueueCreateLifecycle(ctx, bot.ID)
 	return bot, nil
+}
+
+func (s *Service) countUserBots(ctx context.Context, ownerID pgtype.UUID) (int, error) {
+	rows, err := s.queries.ListBotsByOwner(ctx, ownerID)
+	if err != nil {
+		return 0, err
+	}
+	count := 0
+	for _, row := range rows {
+		if !isSystemBotMetadata(row.Metadata) {
+			count++
+		}
+	}
+	return count, nil
+}
+
+func isSystemBotMetadata(payload []byte) bool {
+	var metadata map[string]any
+	if json.Unmarshal(payload, &metadata) != nil {
+		return false
+	}
+	enabled, _ := metadata["bot_designer"].(bool)
+	return enabled
 }
 
 // MarkReady marks a bot lifecycle transition as complete and returns the fresh row.

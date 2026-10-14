@@ -488,6 +488,9 @@ func createBotHTTPError(err error, ownerFromToken bool) error {
 	if errors.Is(err, bots.ErrBotNameTaken) {
 		return apperror.New(apperror.CodeBotNameTaken, map[string]string{"field": "name"})
 	}
+	if errors.Is(err, bots.ErrBotLimitReached) {
+		return echo.NewHTTPError(http.StatusConflict, "this cloud computer already has its bot")
+	}
 	if errors.Is(err, bots.ErrBotNameInvalid) || errors.Is(err, bots.ErrBotNameReserved) {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}

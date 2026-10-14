@@ -4,6 +4,7 @@
          competes with the centered group below (create lives as a tile). -->
     <div class="flex h-8 justify-end">
       <Button
+          v-if="!isSingleBotDeployment"
         variant="outline"
         size="sm"
         @click="router.push({ name: 'bot-new', query: { mode: 'import' } })"
@@ -71,7 +72,7 @@
         <!-- Create tile: the add companion, so a single bot is never a lonely
              card. Hidden while filtering. -->
         <PersonaTile
-          v-if="!searchText"
+          v-if="!searchText && !isSingleBotDeployment"
           variant="add"
           :name="$t('bots.createBot')"
           @click="router.push({ name: 'bot-new' })"
@@ -108,6 +109,7 @@ import { PersonaTile } from '@felinic/ui'
 import BotCard from './components/bot-card.vue'
 import { useQuery, useQueryCache } from '@pinia/colada'
 import { getBotsQuery, getBotsQueryKey } from '@memohai/sdk/colada'
+import { isSingleBotDeployment } from '@/lib/deployment'
 
 declare global {
   interface Window {

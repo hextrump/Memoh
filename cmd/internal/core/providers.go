@@ -241,6 +241,12 @@ func provideAccountService(log *slog.Logger, accountStore dbstore.AccountStore) 
 	return accounts.NewService(log, accountStore)
 }
 
+func provideBotsService(log *slog.Logger, queries dbstore.Queries, cfg config.Config) *bots.Service {
+	service := bots.NewService(log, queries)
+	service.SetMaxUserBots(cfg.BotPolicy.MaxUserBots)
+	return service
+}
+
 func provideSettingsService(
 	log *slog.Logger,
 	queries dbstore.Queries,
