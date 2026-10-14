@@ -1,6 +1,12 @@
 import { ref, type Ref } from 'vue'
 import { fetchBots, type Bot } from '@/composables/api/useChat'
 import { isPendingBot } from '../chat-list.normalize'
+import { isSingleBotDeployment } from '@/lib/deployment'
+
+function visibleBots(list: Bot[]): Bot[] {
+  if (!isSingleBotDeployment) return list
+  return list.filter(bot => bot.metadata?.bot_designer !== true)
+}
 
 export function createChatBots(deps: {
   currentBotId: Ref<string | null>
@@ -11,7 +17,7 @@ export function createChatBots(deps: {
   async function ensureBot(): Promise<string | null> {
     const generation = deps.userScopeGeneration()
     try {
-      const list = await fetchBots()
+      const list = visibleBots(await fetchBots())
       if (generation !== deps.userScopeGeneration()) return null
       bots.value = list
       if (!list.length) {
@@ -39,7 +45,7 @@ export function createChatBots(deps: {
   async function refreshBots() {
     const generation = deps.userScopeGeneration()
     try {
-      const list = await fetchBots()
+      const list = visibleBots(await fetchBots())
       if (generation === deps.userScopeGeneration()) bots.value = list
     } catch (error) {
       if (generation === deps.userScopeGeneration()) {

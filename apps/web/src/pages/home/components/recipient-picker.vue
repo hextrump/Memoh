@@ -119,7 +119,11 @@ const isDesigner = (bot: BotsBot) => bot.metadata?.bot_designer === true
 
 const selectableBots = computed(() =>
   (botData.value?.items ?? []).filter(bot =>
-    bot.id && bot.status !== 'error' && bot.status !== 'creating' && bot.status !== 'deleting',
+    bot.id
+    && (!isSingleBotDeployment || !isDesigner(bot))
+    && bot.status !== 'error'
+    && bot.status !== 'creating'
+    && bot.status !== 'deleting',
   ),
 )
 const designerBot = computed(() => selectableBots.value.find(isDesigner) ?? null)
