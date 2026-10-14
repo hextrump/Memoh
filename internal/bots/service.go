@@ -32,8 +32,8 @@ type Service struct {
 	connectorLifecycle    ConnectorLifecycle
 	checkers              []RuntimeChecker
 	containerReachability func(ctx context.Context, botID string) error
-	maxUserBots          int
-	createMu             sync.Mutex
+	maxUserBots           int
+	createMu              sync.Mutex
 }
 
 const (
@@ -223,18 +223,22 @@ func (s *Service) countUserBots(ctx context.Context, ownerID pgtype.UUID) (int, 
 	}
 	count := 0
 	for _, row := range rows {
-		if !isSystemBotMetadata(row.Metadata) {
+		if !isSystemBotPayload(row.Metadata) {
 			count++
 		}
 	}
 	return count, nil
 }
 
-func isSystemBotMetadata(payload []byte) bool {
+func isSystemBotPayload(payload []byte) bool {
 	var metadata map[string]any
 	if json.Unmarshal(payload, &metadata) != nil {
 		return false
 	}
+	return isSystemBotMetadata(metadata)
+}
+
+func isSystemBotMetadata(metadata map[string]any) bool {
 	enabled, _ := metadata["bot_designer"].(bool)
 	return enabled
 }

@@ -12,7 +12,6 @@ import (
 	"github.com/felinics/memoh/internal/apps"
 	audiopkg "github.com/felinics/memoh/internal/audio"
 	"github.com/felinics/memoh/internal/boot"
-	"github.com/felinics/memoh/internal/bots"
 	"github.com/felinics/memoh/internal/channelaccess"
 	"github.com/felinics/memoh/internal/chat/event"
 	"github.com/felinics/memoh/internal/config"

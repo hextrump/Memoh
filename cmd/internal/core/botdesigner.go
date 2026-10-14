@@ -172,9 +172,9 @@ func EnsureBotDesigner(ctx context.Context, log *slog.Logger, cfg config.Config,
 		return nil
 	}
 	bot, err := botService.Create(ctx, admin.ID, bots.CreateBotRequest{
-		Name:         botDesignerName,
-		DisplayName:  botDesignerDisplayName,
-		Metadata:     map[string]any{agenttools.BotDesignerMetadataKey: true},
+		Name:          botDesignerName,
+		DisplayName:   botDesignerDisplayName,
+		Metadata:      map[string]any{agenttools.BotDesignerMetadataKey: true},
 		WaitForReady:  cfg.BotDesigner.HasWorkspace(),
 		SkipLifecycle: !cfg.BotDesigner.HasWorkspace(),
 	})
