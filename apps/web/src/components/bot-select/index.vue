@@ -11,8 +11,7 @@
         >
           <Avatar class="size-5 shrink-0">
             <AvatarImage
-              v-if="selectedBot.avatar_url"
-              :src="selectedBot.avatar_url"
+              :src="selectedBot.avatar_url || pokeballAvatar(selectedBot.id)"
               :alt="selectedBot.display_name"
             />
             <AvatarFallback class="text-[9px]">
@@ -32,8 +31,7 @@
         <div class="flex items-center gap-2">
           <Avatar class="size-5 shrink-0">
             <AvatarImage
-              v-if="bot.avatar_url"
-              :src="bot.avatar_url"
+              :src="bot.avatar_url || pokeballAvatar(bot.id)"
               :alt="bot.display_name"
             />
             <AvatarFallback class="text-[9px]">
@@ -56,6 +54,7 @@ import {
 } from '@felinic/ui'
 import { getBotsQuery } from '@memohai/sdk/colada'
 import type { BotsBot } from '@memohai/sdk'
+import { pokeballAvatar } from '@/utils/pokeball-avatar'
 
 const props = defineProps<{
   modelValue: string

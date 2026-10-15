@@ -23,8 +23,7 @@
         <span class="relative shrink-0">
           <Avatar class="size-10">
             <AvatarImage
-              v-if="row.bot.avatar_url"
-              :src="row.bot.avatar_url"
+              :src="row.bot.avatar_url || pokeballAvatar(row.bot.id)"
               :alt="row.label"
             />
             <AvatarFallback class="text-xs">
@@ -86,6 +85,7 @@ import { useWorkspaceTabsStore } from '@/store/workspace-tabs'
 import { usePinnedBots } from '@/composables/usePinnedBots'
 import { botInitials, plainPreview } from '@/utils/bot-initials'
 import { formatConversationTime } from '@/utils/conversation-time'
+import { pokeballAvatar } from '@/utils/pokeball-avatar'
 
 // Same sidebar hover token the Explorer rows use (file-manager/tree-row.ts).
 const rowHoverClass = 'hover:bg-[color:var(--sidebar-hover)]' /* ui-allow-style: messenger bot rows have no library owner; shared sidebar hover token */

@@ -63,8 +63,7 @@
         >
           <Avatar class="size-8 shrink-0">
             <AvatarImage
-              v-if="bot.avatar_url"
-              :src="bot.avatar_url"
+              :src="bot.avatar_url || pokeballAvatar(bot.id)"
               :alt="labelOf(bot)"
             />
             <AvatarFallback class="text-xs">
@@ -103,6 +102,7 @@ import { useChatStore } from '@/store/chat-list'
 import { useWorkspaceTabsStore } from '@/store/workspace-tabs'
 import { botInitials } from '@/utils/bot-initials'
 import { isSingleBotDeployment } from '@/lib/deployment'
+import { pokeballAvatar } from '@/utils/pokeball-avatar'
 
 const open = defineModel<boolean>('open', { default: false })
 const emit = defineEmits<{ 'quick-create': [] }>()

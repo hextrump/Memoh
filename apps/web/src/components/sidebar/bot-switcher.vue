@@ -24,8 +24,7 @@
           :class="fullWidth ? 'size-[22px]' : 'size-5'"
         >
           <AvatarImage
-            v-if="currentBot?.avatar_url"
-            :src="currentBot.avatar_url"
+            :src="currentBot?.avatar_url || pokeballAvatar(currentBot?.id)"
             :alt="currentLabel"
           />
           <AvatarFallback class="text-[9px]">
@@ -88,8 +87,7 @@
           <span class="relative size-5 shrink-0">
             <Avatar class="bot-row-avatar size-5 transition-opacity group-hover:opacity-0">
               <AvatarImage
-                v-if="bot.avatar_url"
-                :src="bot.avatar_url"
+                :src="bot.avatar_url || pokeballAvatar(bot.id)"
                 :alt="bot.display_name || bot.id"
               />
               <AvatarFallback class="text-[9px]">
@@ -167,6 +165,7 @@ import {
 import { Check, ChevronsUpDown, GripVertical, Plus, Settings2 } from 'lucide-vue-next'
 import { useChatStore } from '@/store/chat-list'
 import { usePinnedBots } from '@/composables/usePinnedBots'
+import { pokeballAvatar } from '@/utils/pokeball-avatar'
 
 const router = useRouter()
 const { t } = useI18n()
